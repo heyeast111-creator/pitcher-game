@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>투수키우기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&family=Gothic+A1:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+/* 레이아웃: 야간 경기장. 위에 선수 HUD, 가운데 무대(경기장 장면 또는 훈련 카드), 아래 조작부. 주인공은 포수 시점의 스트라이크존. */
+:root{
+  color-scheme:dark;
+  --night:#091425; --panel:#12233b; --panel2:#0c1a2e; --line:#28425f;
+  --chalk:#f4f1e6; --dim:#9fb3c8;
+  --lamp:#ffc93c; --grass:#44c776; --seam:#ff5a45; --team:#4b6b8a;
+  --display:"Do Hyeon","Gothic A1",sans-serif; --impact:"Black Han Sans","Do Hyeon",sans-serif;
+  --body:"Gothic A1","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--night);color:var(--chalk);font-family:var(--body);font-size:16px;line-height:1.5}
+body{padding:14px 16px 40px;background:radial-gradient(60% 40% at 10% 0%,#1c3558 0%,transparent 70%),radial-gradient(60% 40% at 90% 0%,#1c3558 0%,transparent 70%),var(--night);background-attachment:fixed}
+#app{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1,h2,h3{font-family:var(--display);font-weight:400;margin:0;text-wrap:balance}
+h1{font-family:var(--impact);font-size:clamp(2.8rem,10vw,4.6rem);line-height:.95}
+h2{font-size:1.5rem}
+h3{font-size:1.05rem;color:var(--dim)}
+p{margin:0}
+.dim{color:var(--dim)} .small{font-size:.85rem}
+.stack{display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.sp{justify-content:space-between}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--lamp);outline-offset:2px}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:2px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px;box-shadow:0 6px 0 #050c18}
+.gbtn{font-family:var(--display);font-size:1.15rem;background:var(--lamp);color:#221a00;border:0;border-bottom:4px solid #b98a12;border-radius:10px;padding:10px 20px}
+.gbtn:active{transform:translateY(2px);border-bottom-width:2px}
+.gbtn:disabled{opacity:.4;cursor:not-allowed}
+.gbtn.sub{background:#1d3352;color:var(--chalk);border-bottom-color:#0a1526}
+.gbtn.red{background:var(--seam);color:#fff;border-bottom-color:#a52d1f}
+.gbtn.big{font-size:1.5rem;padding:14px 28px;width:100%}
+.link{background:none;border:0;color:var(--dim);text-decoration:underline;padding:6px}
+/* HUD */
+.hud{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;border-top:5px solid var(--team)}
+.emb{width:58px;height:58px;border-radius:50%;background:var(--team);display:grid;place-items:center;font-family:var(--impact);font-size:1.7rem;color:#fff;border:3px solid var(--chalk);box-shadow:0 3px 0 #050c18}
+.hud .nm{font-family:var(--display);font-size:1.5rem;line-height:1.1;overflow-wrap:anywhere}
+.ovr{text-align:center;background:var(--night);border:2px solid var(--line);border-radius:10px;padding:4px 12px}
+.ovr b{display:block;font-family:var(--impact);font-size:2rem;line-height:1;color:var(--lamp)}
+.pips{display:flex;gap:5px;align-items:center}
+.pips i{width:22px;height:8px;border-radius:4px;background:#22364f}
+.pips i.on{background:var(--grass)} .pips i.now{background:var(--lamp)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+.bar{display:grid;grid-template-columns:4.6em 1fr 3.2em;gap:8px;align-items:center;font-size:.92rem}
+.bar b{text-align:right;font-variant-numeric:tabular-nums}
+.segs{display:flex;gap:3px}
+.segs i{flex:1;height:14px;border-radius:3px;background:#1d3049}
+.segs.ok i.f{background:var(--grass)} .segs.warn i.f{background:var(--lamp)} .segs.bad i.f{background:var(--seam)}
+.fill{height:12px;border-radius:6px;background:#1d3049;overflow:hidden}
+.fill u{display:block;height:100%;border-radius:6px;background:var(--chalk);transition:width .5s}
+.fill.fat u{background:linear-gradient(90deg,var(--grass),var(--lamp) 60%,var(--seam))}
+.fill.trust u{background:#6aa7ff} .fill.fans u{background:#ff8fb0}
+.grade{display:inline-grid;place-items:center;width:1.6em;height:1.6em;border-radius:5px;font-family:var(--impact);background:#1d3049}
+.grade.S{background:var(--lamp);color:#221a00}.grade.A{background:var(--seam);color:#fff}.grade.B{background:#6aa7ff;color:#04142e}.grade.C{background:var(--grass);color:#062412}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--night);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:.88rem}
+.chip strong{font-family:var(--display);font-size:1.05rem;font-weight:400}
+.chip.up{border-color:var(--grass);color:var(--grass)} .chip.down{border-color:var(--seam);color:var(--seam)}
+@media(prefers-reduced-motion:no-preference){.chip.pop{animation:pop .4s cubic-bezier(.2,1.6,.4,1) both}.burst{animation:burst 1.5s ease-out both}.ballw.new{animation:fly .42s cubic-bezier(.3,0,.7,1) both}}
+@keyframes pop{from{transform:scale(.3);opacity:0}}
+/* 훈련 카드 */
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.tc{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--night);border:2px solid var(--line);border-bottom-width:5px;border-radius:12px;padding:12px;min-height:128px}
+.tc:hover:not(:disabled){border-color:var(--lamp);transform:translateY(-2px)}
+.tc:active:not(:disabled){transform:translateY(2px);border-bottom-width:2px}
+.tc:disabled{opacity:.4;cursor:not-allowed}
+.tc svg{width:30px;height:30px;stroke:var(--lamp);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tc strong{font-family:var(--display);font-size:1.2rem;font-weight:400}
+.tc small{color:var(--dim);font-size:.8rem;line-height:1.35}
+.tc em{font-style:normal;font-size:.78rem;margin-top:auto;color:var(--chalk)}
+.tc.on{border-color:var(--lamp);background:#1b2c12}
+.toggle{display:inline-flex;border:2px solid var(--line);border-radius:10px;overflow:hidden}
+.toggle button{background:transparent;border:0;padding:7px 16px;font-family:var(--display);font-size:1.05rem}
+.toggle button.on{background:var(--chalk);color:var(--night)}
+.toggle button.on.hard{background:var(--seam);color:#fff}
+.note{border-left:5px solid var(--lamp);padding:8px 12px;background:var(--night);border-radius:0 8px 8px 0}
+.note.bad{border-color:var(--seam)} .note.good{border-color:var(--grass)}
+input[type=text]{font:inherit;background:var(--night);color:var(--chalk);border:2px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;max-width:280px}
+/* 경기 */
+.sb{display:flex;gap:6px;flex-wrap:wrap;align-items:stretch;background:#050c18;border-radius:10px;padding:6px;font-family:var(--display)}
+.sb>div{background:#0f1f36;border-radius:6px;padding:6px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.sb span{font-size:.72rem;color:var(--dim);font-family:var(--body)}
+.sb b{font-weight:400;font-size:1.3rem;color:var(--lamp);line-height:1}
+.lamps{display:flex;gap:5px;align-items:center}
+.lamps i{width:14px;height:14px;border-radius:50%;background:#22364f}
+.lamps.b i.on{background:var(--grass);box-shadow:0 0 8px var(--grass)}.lamps.s i.on{background:var(--lamp);box-shadow:0 0 8px var(--lamp)}.lamps.o i.on{background:var(--seam);box-shadow:0 0 8px var(--seam)}
+.dia{position:relative;width:44px;height:44px}
+.dia i{position:absolute;width:15px;height:15px;background:#22364f;transform:rotate(45deg)}
+.dia i.on{background:var(--lamp);box-shadow:0 0 8px var(--lamp)}
+.dia i:nth-child(1){right:2px;top:15px}.dia i:nth-child(2){left:15px;top:2px}.dia i:nth-child(3){left:2px;top:15px}
+.play{display:grid;grid-template-columns:minmax(0,440px) 1fr;gap:14px;align-items:start}
+@media(max-width:760px){.play{grid-template-columns:1fr}}
+.scene{position:relative;aspect-ratio:10/9;border-radius:12px;overflow:hidden;border:2px solid var(--line);background:#0b1a30}
+.scene canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.zone{position:absolute;left:27%;width:46%;top:34%;height:58%;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(5,1fr)}
+.cell{position:relative;background:transparent;border:1px dashed rgba(244,241,230,.16);padding:0;border-radius:0}
+.cell.k{border:1.5px solid rgba(244,241,230,.85);background:rgba(244,241,230,.07)}
+.cell:hover:not(:disabled){background:rgba(255,201,60,.35)}
+.cell.sel{background:rgba(255,201,60,.75)}
+.cell.aim::after{content:"";position:absolute;inset:22%;border:2px dotted var(--lamp);border-radius:50%}
+.ballw{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;z-index:2}
+.ball{width:70%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#d9d4c4);border:2px solid var(--seam);display:grid;place-items:center;color:#111;font-weight:800;font-size:.75rem;box-shadow:0 3px 8px rgba(0,0,0,.5)}
+.ballw.old .ball{opacity:.4;border-color:transparent;width:50%}
+@keyframes fly{0%{transform:translate(var(--sx),var(--sy)) scale(.12)}55%{transform:translate(var(--mx),var(--my)) scale(.5)}100%{transform:none}}
+.burst{position:absolute;left:0;right:0;top:8%;text-align:center;font-family:var(--impact);font-size:clamp(2rem,9vw,3.4rem);color:var(--lamp);text-shadow:0 4px 0 #050c18,0 0 18px rgba(0,0,0,.8);pointer-events:none;z-index:3}
+.burst.bad{color:var(--seam)} .burst.good{color:var(--grass)}
+@keyframes burst{0%{transform:scale(.2);opacity:0}25%{transform:scale(1.15);opacity:1}40%{transform:scale(1)}100%{opacity:.9}}
+.pits{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pit{background:var(--night);border:2px solid var(--line);border-bottom-width:4px;border-radius:10px;padding:8px 10px;text-align:left;display:flex;flex-direction:column}
+.pit strong{font-family:var(--display);font-weight:400;font-size:1.1rem;overflow-wrap:anywhere}
+.pit small{color:var(--dim);font-size:.78rem}
+.pit.on{border-color:var(--lamp);background:#2a2208}
+.mbar{position:relative;height:34px;border-radius:8px;background:#1d3049;overflow:hidden;border:2px solid var(--line)}
+.mbar .sw{position:absolute;top:0;bottom:0;background:rgba(68,199,118,.55)}
+.mbar .pf{position:absolute;top:0;bottom:0;background:var(--lamp)}
+.mbar .mk{position:absolute;top:-2px;bottom:-2px;width:5px;margin-left:-2.5px;background:#fff;box-shadow:0 0 8px #fff}
+.log{font-size:.88rem;display:flex;flex-direction:column;gap:3px;max-height:9.5em;overflow:auto}
+.log div{color:var(--dim)} .log div:first-child{color:var(--chalk);font-weight:600}
+.hero{position:relative;aspect-ratio:16/8;border-radius:14px;overflow:hidden;border:2px solid var(--line)}
+.hero canvas{position:absolute;inset:0;width:100%;height:100%}
+.hero div{position:absolute;left:5%;bottom:8%;right:5%;text-shadow:0 4px 0 #050c18,0 0 24px rgba(0,0,0,.9)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:.9rem}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font-weight:400;font-size:.78rem}
+td.n,th.n{text-align:right}
+tr.me td{color:var(--lamp);font-weight:800}
+tr.sum td{font-family:var(--display);font-size:1.3rem;color:var(--lamp);border-bottom:0}
+.scroll{overflow-x:auto}
+.tag{display:inline-block;font-size:.72rem;border:1px solid var(--line);border-radius:4px;padding:0 6px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+/* ---------- 유틸 ---------- */
+const R=Math.random, ri=(a,b)=>Math.floor(R()*(b-a+1))+a, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const pick=a=>a[Math.floor(R()*a.length)], gauss=()=>(R()+R()+R()-1.5)*1.4;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const f1=n=>(Math.round(n*10)/10).toFixed(1), sg=n=>(n>0?'+':'')+f1(n);
+const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const SET=store.get('acearm.set')||{mute:false};
+let AC=null;
+function snd(k){ if(SET.mute) return; try{ AC=AC||new (globalThis.AudioContext||globalThis.webkitAudioContext)();
+  const seq={strike:[[660,.07],[880,.12]],ball:[[220,.12]],foul:[[400,.06]],hit:[[150,.05,'square'],[95,.14,'square']],k:[[660,.07],[880,.07],[1320,.18]],hr:[[300,.14],[220,.14],[150,.3]],out:[[520,.08],[390,.12]],ui:[[520,.035]],gain:[[700,.06],[1050,.1]],bad:[[200,.1],[150,.18]]}[k]||[];
+  let t=AC.currentTime; for(const [f,d,ty] of seq){ const o=AC.createOscillator(), g=AC.createGain(); o.type=ty||'triangle'; o.frequency.value=f; g.gain.setValueAtTime(.09,t); g.gain.exponentialRampToValueAtTime(.001,t+d); o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+d); t+=d; } }catch(e){} }
+
+/* ---------- 데이터 ---------- */
+const TIER={hs:{n:'고교',diff:30,mult:.4,turns:['봄 대회','주말 리그','여름 대회','가을 대회']},
+ col:{n:'대학',diff:37,mult:.45,turns:['춘계 리그','하계 리그','대통령기','추계 리그']},
+ fut:{n:'2군',diff:44,mult:.6,turns:['4월','6월','8월','10월']},
+ pro:{n:'1군',diff:58,mult:1,turns:['4월','6월','8월','10월']},
+ big:{n:'빅리그',diff:72,mult:1.6,turns:['4월','6월','8월','10월']}};
+const UNIVS=['한빛대','동해대','새벽대','누리대'];
+const ROLES=[{id:'sp',n:'선발',d:'처음 능력치가 높고 성장이 느리다. 이닝이 많아 팔이 빨리 닳는다',init:5,grow:.85},{id:'mr',n:'중계',d:'능력치와 성장이 모두 평균. 홀드를 쌓는다',init:1,grow:1},{id:'cl',n:'마무리',d:'처음 능력치가 낮고 성장이 빠르다. 9회를 맡아 세이브를 쌓는다',init:-3,grow:1.18}];
+const RN={sp:'선발',mr:'중계',cl:'마무리'};
+const STARTP={fire:['sld','frk','cut'],craft:['crv','chg','sld'],iron:['two','chg','crv']};
+const SCHOOLS=['한강고','무등고','영도고','달구벌고','한밭고','미추홀고'];
+const KBO=[{n:'서울 곰',i:'곰',c:'#27408f',tag:'2군 훈련 효과가 15% 높다',grow:1.15},
+ {n:'서울 쌍둥이',i:'쌍',c:'#b0123b',tag:'팬 인기가 빨리 오른다',fan:1.3},
+ {n:'서울 영웅',i:'영',c:'#7a1f3d',tag:'젊은 투수를 1군에 일찍 올린다',promo:1},
+ {n:'인천 상륙단',i:'상',c:'#c8102e',tag:'강팀이라 승리가 잘 붙는다',str:.04},
+ {n:'수원 마법사',i:'마',c:'#3a3a44',tag:'변화구 숙련이 20% 빨리 오른다',mas:1.2},
+ {n:'대전 독수리',i:'독',c:'#e8651a',tag:'약팀이라 승은 적지만 신뢰를 얻기 쉽다',str:-.06,tr:1.4},
+ {n:'대구 사자',i:'사',c:'#1556b8',tag:'명문 구단. 타이틀 점수가 30% 높다',title:1.3},
+ {n:'광주 호랑이',i:'호',c:'#d0202a',tag:'우승 후보. 승리가 잘 붙지만 신뢰는 짜다',str:.05,tr:.8},
+ {n:'부산 갈매기',i:'갈',c:'#0f2f66',tag:'열성 팬. 인기가 크게 오르내린다',fan:1.5,fanDown:1.5},
+ {n:'창원 공룡',i:'공',c:'#1c4a7a',tag:'관리 야구. 휴식 효과가 30% 높다',rest:1.3}];
+const BIG=[{n:'뉴욕 줄무늬',i:'뉴',c:'#22335c'},{n:'로스앤젤레스 파랑',i:'로',c:'#1e5fbf'},{n:'보스턴 빨간양말',i:'보',c:'#b3202a'},{n:'시카고 아기곰',i:'시',c:'#1d3f9a'},{n:'샌프란시스코 거인',i:'샌',c:'#d9601a'},{n:'휴스턴 우주인',i:'휴',c:'#c2570f'}];
+const TYPES=[{id:'fire',n:'파이어볼러',d:'구속이 높고 제구가 거칠다',m:{velo:10,ctl:-6}},
+ {id:'craft',n:'기교파',d:'제구와 변화가 좋고 공이 느리다',m:{velo:-8,ctl:9,brk:6}},
+ {id:'iron',n:'고무팔',d:'체력이 좋고 팔이 튼튼하다',m:{sta:10},arm:12}];
+const IC={velo:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',ctl:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>',brk:'<path d="M3 5c9 0 6 13 17 13"/><path d="m16 15 4 3-4 3"/>',sta:'<path d="M2 12h4l2-6 4 12 3-8 1 2h6"/>',men:'<circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5c2 2 5 2 7 0"/>',rest:'<path d="M20 14A8 8 0 1 1 10 4a6.5 6.5 0 0 0 10 10z"/>',lab:'<path d="M9 3h6M10 3v6L5 19a1.3 1.3 0 0 0 1.2 2h11.6A1.3 1.3 0 0 0 19 19L14 9V3M8 15h8"/>'};
+const TR=[{id:'velo',n:'구속 훈련',d:'롱토스와 웨이트. 어깨를 많이 쓴다',sh:1.0,el:.4,fat:14},
+ {id:'ctl',n:'제구 훈련',d:'코너만 노려 던진다. 릴리스 구간이 넓어진다',sh:.5,el:.5,fat:12},
+ {id:'brk',n:'변화구 연마',d:'변화 능력과 변화구 숙련도. 팔꿈치를 쓴다',sh:.3,el:1.0,fat:13},
+ {id:'sta',n:'체력 훈련',d:'러닝과 하체. 이닝이 늘고 피로가 덜 쌓인다',sh:0,el:0,fat:8},
+ {id:'men',n:'멘탈 훈련',d:'타자를 더 정확히 읽고 릴리스가 느려진다',sh:0,el:0,fat:2},
+ {id:'rest',n:'휴식과 관리',d:'피로를 크게 풀고 팔을 조금 회복한다',rest:1},
+ {id:'lab',n:'구종 연구소',d:'새 구종을 만들거나, 숙련도 80을 넘긴 구종을 상위 구종으로 진화시킨다',lab:1}];
+const SN={velo:'구속',ctl:'제구',brk:'변화',sta:'체력',men:'멘탈'};
+const GRIPS=[{id:'two',n:'투심',dv:-3,move:36,ax:'h',se:.5,ss:1.0},{id:'cut',n:'커터',dv:-6,move:42,ax:'h',se:1.2,ss:.5},
+ {id:'sld',n:'슬라이더',dv:-13,move:55,ax:'h',se:1.6,ss:.4},{id:'crv',n:'커브',dv:-25,move:60,ax:'v',se:1.3,ss:.4},
+ {id:'chg',n:'체인지업',dv:-17,move:50,ax:'v',se:.6,ss:.6},{id:'frk',n:'포크',dv:-12,move:66,ax:'v',se:2.2,ss:.4}];
+const SLOTS=[{id:'over',n:'오버핸드',d:'떨어지는 공이 더 떨어진다'},{id:'tq',n:'스리쿼터',d:'균형형. 제구가 조금 쉽다'},{id:'side',n:'사이드암',d:'옆으로 휘는 공이 더 휜다. 조금 느려진다'}];
+const SPINS=[{id:'rev',n:'회전수 중시',d:'무브먼트 +10, 제구 -8'},{id:'spd',n:'구속 중시',d:'4km/h 빨라지고 무브먼트 -8'},{id:'safe',n:'안정 중시',d:'제구 +8'}];
+const SUR=['강','박','윤','서','문','한','오','류','남','채','표','탁'], GIV=['도윤','태산','건우','시헌','재혁','민성','우람','한결','진호','상현','기찬','동주'];
+const FOR=['R. 델가도','M. 하워스','J. 킨케이드','T. 오소리오','B. 랭포드','D. 마에다','C. 브루어'];
+const CRISIS=[{o:2,b:[1,1,1]},{o:1,b:[0,1,1]},{o:2,b:[1,0,1]},{o:0,b:[0,1,0]},{o:1,b:[1,1,0]},{o:2,b:[0,1,0]},{o:1,b:[1,0,1]}];
+const LEGENDS=[{n:'무쇠팔 최동혁',s:8200,t:'21시즌 · 영구결번'},{n:'잠수함 한기범',s:6000,t:'대표 구종 싱커'},{n:'좌완 서태호',s:4600,t:'빅리그 5시즌'},{n:'마당쇠 문창석',s:3300,t:'불펜 12시즌 원클럽맨'},{n:'유리팔 강민재',s:1700,t:'4시즌 만에 은퇴'},{n:'고교 에이스 윤슬기',s:420,t:'1군 등판 없음'}];
+
+/* ---------- 상태 ---------- */
+let G=store.get('acearm.save4'), U={};
+function save(){ if(G) store.set('acearm.save4',G); }
+function newGame(name,hand,type,role,spid){
+  const t=TYPES.find(x=>x.id===type), s={velo:40,ctl:36,brk:30,sta:40,men:35};
+  for(const k in t.m) s[k]+=t.m[k];
+  const ro=ROLES.find(x=>x.id===role)||ROLES[0]; for(const k in s) s[k]+=ro.init;
+  const a=100+(t.arm||0);
+  G={v:2,name:name||'무명',hand,type:t.n,age:18,year:1,turn:0,league:'hs',school:pick(SCHOOLS),univ:'',team:-1,bteam:-1,role:ro.id,grow:ro.grow,wearMul:1,stats:s,arm:{sh:a,el:a,max:a},fat:10,
+    trust:50,fans:8,trustSum:0,proYears:0,teamYears:0,oneClub:true,
+    pitches:[{name:'직구',grip:'포심',dv:0,move:0,ax:'v',ctl:4,se:.4,ss:.9,mas:50,fb:1}],
+    career:{w:0,l:0,ip:0,er:0,k:0,score:0,dw:0,dt:0},season:{w:0,l:0,ip:0,er:0,k:0},hist:[],futYears:0,out:0,flags:{},phase:'train',titles:0};
+  const gp=GRIPS.find(x=>x.id===spid); if(gp) G.pitches.push({name:gp.n,grip:gp.n,dv:gp.dv,move:gp.move,ax:gp.ax,ctl:3,se:gp.se,ss:gp.ss,mas:30});
+  U={hard:false}; save();
+}
+const tier=()=>TIER[G.league];
+const amateur=(l=G.league)=>l==='hs'||l==='col';
+const isSP=()=>amateur()||G.role==='sp';
+const team=()=>G.league==='hs'?{n:G.school,i:'고',c:'#4b6b8a'}:G.league==='col'?{n:G.univ,i:'대',c:'#5b4b8a'}:G.league==='big'?BIG[G.bteam]:KBO[G.team];
+const club=()=>G.league==='hs'?G.school:G.league==='col'?G.univ:G.league==='big'?team().n:`${team().n} ${tier().n}`;
+const kmh=p=>Math.round(128+G.stats.velo*.3+p.dv);
+function stuff(p){ return p.fb? G.stats.velo*(.8+.2*p.mas/100)*(p.rise?1.1:1) : (p.move*.55+G.stats.brk*.55)*(.6+.4*p.mas/100); }
+function rating(){ const st=G.pitches.map(stuff).sort((a,b)=>b-a), best=(st[0]+(st[1]??st[0]*.7))/2, s=G.stats;
+  return s.velo*.25+s.ctl*.3+best*.3+s.sta*.1+s.men*.05; }
+const ageWear=()=>1+Math.max(0,G.age-30)*.09;
+function wear(sh,el){ const m=G.wearMul||1; if(sh>0) sh*=m; if(el>0) el*=m; G.arm.sh=clamp(G.arm.sh-sh,0,G.arm.max); G.arm.el=clamp(G.arm.el-el,0,G.arm.max); }
+const era=o=>o.ip>0?(o.er*9/o.ip):0;
+const st=(k,d)=>{G.stats[k]=clamp(G.stats[k]+d,1,100)};
+const fatg=d=>{G.fat=clamp(G.fat+d,0,100)};
+function trust(d){ const t=team(); G.trust=clamp(G.trust+d*(d>0?(t.tr||1):1),0,100); }
+function fans(d){ const t=team(); G.fans=clamp(G.fans+d*(d>0?(t.fan||1):(t.fanDown||1)),0,100); }
+
+/* ---------- 훈련 ---------- */
+function doTrain(id,hard){
+  const t=TR.find(x=>x.id===id), tm=team(), msg=[], gains=[]; U.injured=false; U.lastTrain=id;
+  if(t.rest){ fatg(-45*(tm.rest||1)); wear(-1.5,-1.5); msg.push('푹 쉬었다. 피로가 풀리고 팔이 조금 회복됐다.'); gains.push(['피로','크게 회복',1]); }
+  else{
+    const mul=hard?1.8:1, wm=(hard?2.4:1)*(1+G.fat/120)*ageWear();
+    let g=(3+R()*2)*(1-G.stats[id]/115)*mul*(G.league==='fut'?(tm.grow||1):1)*(G.grow||1)*(G.league==='col'?1.15:1);
+    if(R()<.1){ g*=2; msg.push('몸이 유난히 가볍다. 훈련 효과가 두 배로 들어왔다.'); }
+    if(id==='velo'&&G.age>31) g*=.4;
+    st(id,g); gains.push([SN[id],'+'+f1(g),1]);
+    if(id==='brk'&&G.pitches.length>1){ const m=7*mul*(tm.mas||1); G.pitches.filter(p=>!p.fb).forEach(p=>p.mas=clamp(p.mas+m,0,100)); gains.push(['변화구 숙련','+'+f1(m),1]); }
+    if(id==='velo'||id==='ctl'){ G.pitches[0].mas=clamp(G.pitches[0].mas+4*mul,0,100); }
+    fatg(t.fat*(hard?2:1)); wear(t.sh*wm,t.el*wm);
+    if(t.sh) gains.push(['어깨','-'+f1(t.sh*wm),0]); if(t.el) gains.push(['팔꿈치','-'+f1(t.el*wm),0]);
+    const risk=Math.max(0,G.fat-60)*.012+(hard?.1:0);
+    if(t.sh+t.el>0 && R()<risk){ const j=R()<.5?'sh':'el', d=ri(6,12); G.arm[j]=clamp(G.arm[j]-d,0,G.arm.max); G.fat=30; U.injured=true;
+      msg.push(`훈련 중 ${j==='sh'?'어깨':'팔꿈치'}에 통증이 왔다. 이번 일정은 결장한다.`); gains.push([j==='sh'?'어깨':'팔꿈치','-'+d,0]); }
+  }
+  U.trainMsg=msg; U.gains=gains;
+  const ev=TEV.filter(e=>e.on.includes(id)&&(!e.c||e.c()));
+  if(!U.injured&&ev.length&&R()<.55){ U.tev={e:pickEv(ev,'seenT')}; G.phase='trainEv'; } else G.phase='ready';
+  save();
+}
+function pickEv(pool,key){ const seen=G.flags[key]||(G.flags[key]=[]); let ok=pool.filter(e=>!seen.includes(e.id)); if(!ok.length){ G.flags[key]=[]; ok=pool; } const e=pick(ok); G.flags[key].push(e.id); return e; }
+const masAll=d=>G.pitches.forEach(p=>p.mas=clamp(p.mas+d,0,100));
+const LT=()=>SN[U.lastTrain]?U.lastTrain:'ctl';
+/* 훈련 중 이벤트: [선택지, 결과 함수] */
+const TEV=[
+ {id:'form',on:['velo','ctl','brk'],t:'원포인트 레슨',b:'투수 코치가 다가온다. "팔 스윙을 조금 줄여 보자. 맞으면 크게 좋아질 거다."',ch:[
+   ['폼을 바꿔 본다',()=>{ if(R()<.6){st(LT(),3);trust(3);return `감이 왔다. ${SN[LT()]} +3, 구단 신뢰 +3`} st('ctl',-2);return '폼이 흐트러졌다. 제구 -2'}],
+   ['지금 폼을 지킨다',()=>{trust(-2);st('men',1);return '코치가 입맛을 다신다. 구단 신뢰 -2, 멘탈 +1'}]]},
+ {id:'night',on:['velo','ctl','brk','sta'],t:'야간 훈련 제안',b:'룸메이트가 공을 들고 나간다. "불 꺼지기 전까지 한 세트만 더 하자."',ch:[
+   ['같이 나간다',()=>{st(LT(),1.5);fatg(10);trust(2);return `${SN[LT()]} +1.5, 피로 +10, 구단 신뢰 +2`}],
+   ['숙소로 돌아간다',()=>{fatg(-5);return '일찍 잤다. 피로 -5'}]]},
+ {id:'weight',on:['velo'],t:'무거운 공',b:'트레이너가 웨이티드 볼을 내민다. "구속은 확실히 오른다. 팔꿈치는 장담 못 하고."',ch:[
+   ['던져 본다',()=>{st('velo',2.5);wear(0,2.5);return '공 끝이 달라졌다. 구속 +2.5, 팔꿈치 -2.5'}],
+   ['사양한다',()=>'평소 프로그램대로 마쳤다.']]},
+ {id:'blister',on:['brk','ctl'],t:'손가락 물집',b:'검지 끝에 물집이 잡혔다. 변화구 감각은 지금이 제일 좋다.',ch:[
+   ['테이프를 감고 계속 던진다',()=>{G.pitches.forEach(p=>p.mas=clamp(p.mas+4,0,100)); if(R()<.35){fatg(12);return '물집이 터졌다. 모든 구종 숙련 +4, 피로 +12'} return '감각을 몸에 새겼다. 모든 구종 숙련 +4'}],
+   ['여기서 멈춘다',()=>'오늘은 여기까지.']]},
+ {id:'rookie',on:['sta'],t:'따라붙는 신인',b:'러닝 중 입단 동기가 옆에 붙더니 속도를 올린다.',ch:[
+   ['질 수 없다',()=>{st('sta',2);fatg(8);return '끝까지 앞서 들어왔다. 체력 +2, 피로 +8'}],
+   ['내 페이스를 지킨다',()=>{st('men',1);return '흔들리지 않았다. 멘탈 +1'}]]},
+ {id:'tape',on:['men'],t:'어떤 영상을 볼까',b:'전력분석원이 태블릿을 건넨다. 최고의 경기와 최악의 경기가 나란히 있다.',ch:[
+   ['무너진 경기를 본다',()=>{ if(R()<.65){st('men',3);return '실투의 이유를 찾았다. 멘탈 +3'} st('men',-1);return '그날이 자꾸 떠오른다. 멘탈 -1'}],
+   ['잘 던진 경기를 본다',()=>{st('men',1);return '좋은 리듬을 되새겼다. 멘탈 +1'}]]},
+ {id:'bet',on:['ctl'],t:'불펜 내기',b:'옆 마운드의 동료가 말을 건다. "바깥쪽 낮은 코스, 열 개 중에 누가 더 많이 넣나 내기할까?"',ch:[
+   ['받아들인다',()=>{ if(R()<.3+G.stats.ctl/120){st('men',2);st('ctl',1);return '이겼다. 저녁은 동료가 샀다. 멘탈 +2, 제구 +1'} st('men',-1);fatg(5);return '졌다. 분해서 스무 개를 더 던졌다. 멘탈 -1, 피로 +5'}],
+   ['내 훈련에 집중한다',()=>{st('ctl',.8);return '정해 둔 개수를 채웠다. 제구 +0.8'}]]},
+ {id:'video',on:['brk'],t:'남의 그립',b:'해외 투수의 그립 영상이 화제다. 손가락을 한 마디 더 벌려 잡는다고 한다.',ch:[
+   ['따라 해 본다',()=>{ if(R()<.5){st('brk',3);return '공이 눈에 띄게 꺾인다. 변화 +3'} wear(0,2);return '팔꿈치에 무리가 왔다. 팔꿈치 -2'}],
+   ['내 그립을 다듬는다',()=>{masAll(2);return '모든 구종 숙련 +2'}]]},
+ {id:'rain',on:['velo','ctl','brk','sta'],t:'비가 온다',b:'훈련을 시작하자마자 빗줄기가 굵어진다.',ch:[
+   ['빗속에서 끝까지 한다',()=>{st(LT(),1.5); if(R()<.2){fatg(18);return `${SN[LT()]} +1.5. 그리고 감기에 걸렸다. 피로 +18`} fatg(6);return `${SN[LT()]} +1.5, 피로 +6`}],
+   ['실내에서 섀도 피칭을 한다',()=>{st('men',1.5);return '폼을 천천히 되짚었다. 멘탈 +1.5'}]]},
+ {id:'catcher',on:['ctl','brk'],t:'주전 포수의 제안',b:'주전 포수가 미트를 들고 온다. "오늘은 내가 받아 줄게. 뭘 맞춰 볼까?"',c:()=>!amateur(),ch:[
+   ['사인과 볼배합을 맞춘다',()=>{st('men',2);trust(2);return '호흡이 맞기 시작했다. 멘탈 +2, 구단 신뢰 +2'}],
+   ['내 구종을 하나씩 점검받는다',()=>{masAll(3);return '"이 공은 이제 쓸 만해." 모든 구종 숙련 +3'}]]},
+ {id:'gun',on:['velo'],t:'스피드건',b:'백네트 뒤에서 누군가 스피드건을 들고 있다.',ch:[
+   ['전력으로 던진다',()=>{wear(2,.5); if(R()<.6){fans(4);st('men',1);return '개인 최고 구속이 찍혔고 기사가 났다. 팬 인기 +4, 멘탈 +1, 어깨 -2'} return '힘만 들어가 공이 날렸다. 어깨 -2'}],
+   ['평소대로 던진다',()=>{G.pitches[0].mas=clamp(G.pitches[0].mas+3,0,100);return '내 리듬을 지켰다. 직구 숙련 +3'}]]},
+ {id:'diet',on:['sta'],t:'몸을 어떻게 만들까',b:'영양사가 식단표 두 장을 내민다.',ch:[
+   ['체중을 불린다',()=>{st('velo',1.5);st('sta',-1);return '공에 무게가 실린다. 구속 +1.5, 체력 -1'}],
+   ['체중을 줄인다',()=>{st('sta',2);st('velo',-1);return '몸이 가벼워졌다. 체력 +2, 구속 -1'}],
+   ['지금 몸을 유지한다',()=>{st('men',1);return '멘탈 +1'}]]},
+ {id:'pilates',on:['rest','sta'],t:'낯선 운동',b:'트레이너가 필라테스를 권한다. 투수들 사이에서 유행이라고 한다.',ch:[
+   ['해 본다',()=>{wear(-2,-2);fatg(-5);return '어깨가 한결 부드럽다. 어깨와 팔꿈치 +2, 피로 -5'}],
+   ['하던 대로 쉰다',()=>'익숙한 방식이 편하다.']]},
+ {id:'massage',on:['rest'],t:'소문난 손',b:'팔을 잘 본다는 사설 트레이너가 있다. 구단은 외부 치료를 달가워하지 않는다.',c:()=>!amateur(),ch:[
+   ['사비를 들여 찾아간다',()=>{wear(-3,-3);trust(-2);return '뭉친 곳이 풀렸다. 어깨와 팔꿈치 +3, 구단 신뢰 -2'}],
+   ['구단 트레이너에게 맡긴다',()=>{wear(-1,-1);trust(1);return '어깨와 팔꿈치 +1, 구단 신뢰 +1'}]]},
+ {id:'dinner',on:['rest'],t:'회식',b:'쉬는 날 저녁, 투수조 단체방에 고깃집 주소가 올라왔다.',ch:[
+   ['나간다',()=>{trust(3);fatg(8);st('men',1);return '늦게까지 야구 얘기를 했다. 구단 신뢰 +3, 멘탈 +1, 피로 +8'}],
+   ['집에서 쉰다',()=>{fatg(-6);return '일찍 누웠다. 피로 -6'}]]},
+ {id:'book',on:['men'],t:'선배의 책',b:'선배가 모서리가 닳은 책 한 권을 건넨다. "나는 이걸로 버텼다."',ch:[
+   ['끝까지 읽는다',()=>{st('men',2.5);return '밑줄 친 문장이 남았다. 멘탈 +2.5'}],
+   ['호흡 훈련을 따로 한다',()=>{ if(R()<.6){st('men',3.5);return '마운드에서 숨이 길어졌다. 멘탈 +3.5'} return '졸기만 했다.'}]]},
+ {id:'rival',on:['men','ctl','velo'],t:'동기의 기사',b:'드래프트 동기가 완봉승을 거뒀다는 기사가 떴다.',ch:[
+   ['라커에 붙여 둔다',()=>{st('men',2);fatg(4);return '이를 악물었다. 멘탈 +2, 피로 +4'}],
+   ['축하 문자를 보낸다',()=>{st('men',1);fans(1);return '답장이 왔다. "다음엔 네 차례다." 멘탈 +1'}]]},
+ {id:'grip2',on:['brk'],t:'실밥 반 칸',c:()=>G.pitches.length>1,b:'변화구를 쥔 손가락을 실밥 반 칸 옮기면 더 꺾일 것 같다.',ch:[
+   ['옮겨 본다',()=>{const p=G.pitches.filter(x=>!x.fb).sort((a,b)=>b.mas-a.mas)[0]; p.move+=3; wear(0,1.5);return `'${p.name}'의 무브먼트 +3, 팔꿈치 -1.5`}],
+   ['손에 익은 대로 던진다',()=>{masAll(2);return '모든 구종 숙련 +2'}]]},
+ {id:'kids',on:['rest'],t:'유소년 야구교실',b:'지역 리틀야구단에서 일일 코치를 부탁해 왔다.',ch:[
+   ['간다',()=>{fans(4);st('men',1.5);fatg(8);return '아이들 앞에서 처음 공을 잡던 날이 떠올랐다. 팬 인기 +4, 멘탈 +1.5, 피로 +8'}],
+   ['다음 기회로 미룬다',()=>'정중히 사양했다.']]},
+ {id:'long',on:['velo'],t:'롱토스 거리',b:'코치가 묻는다. "오늘은 120미터까지 가 볼래?"',ch:[
+   ['120미터를 던진다',()=>{st('velo',2);wear(2,.3);return '어깨가 뜨겁다. 구속 +2, 어깨 -2'}],
+   ['90미터에서 공 끝을 다듬는다',()=>{G.pitches[0].mas=clamp(G.pitches[0].mas+5,0,100);return '직구 숙련 +5'}]]},
+ {id:'hill',on:['sta'],t:'언덕 달리기',b:'트레이너가 구장 뒤 언덕을 가리킨다. "열 번만 뛰고 오자."',ch:[
+   ['열 번을 채운다',()=>{st('sta',2.5);fatg(10);return '다리가 후들거린다. 체력 +2.5, 피로 +10'}],
+   ['다섯 번만 뛴다',()=>{st('sta',1);return '체력 +1'}]]},
+ {id:'sign',on:['rest'],c:()=>!amateur(),t:'팬 사인회',b:'구단 홍보팀에서 연락이 왔다. "쉬는 날인데, 사인회에 잠깐 나와 줄 수 있어요?"',ch:[
+   ['나간다',()=>{fans(5);trust(2);fatg(15);return '줄이 길었다. 팬 인기 +5, 구단 신뢰 +2, 피로 +15'}],
+   ['이번엔 쉰다',()=>'전화기를 끄고 잤다.']]},
+ {id:'secret',on:['rest'],t:'쉬는 날의 유혹',b:'빈 연습장에 공 바구니가 그대로 놓여 있다.',ch:[
+   ['몰래 50개만 던진다',()=>{st('ctl',1.2);fatg(12);wear(.5,.5);return '제구 +1.2, 피로 +12'}],
+   ['가족과 저녁을 먹는다',()=>{st('men',2);return '마음이 편해졌다. 멘탈 +2'}]]}
+];
+const EVO={'포심':[{n:'라이징 패스트볼',d:'떠오르는 듯한 직구. 구위가 10% 오른다'}],'투심':[{n:'싱커',dv:-2,move:14,ax:'v',d:'가라앉는 공. 무브먼트 +14'}],
+ '커터':[{n:'고속 커터',dv:3,move:8,d:'3km/h 빨라지고 무브먼트 +8'}],'슬라이더':[{n:'스위퍼',dv:-3,move:16,d:'크게 휘는 공. 무브먼트 +16'},{n:'고속 슬라이더',dv:5,move:6,d:'5km/h 빨라지고 무브먼트 +6'}],
+ '커브':[{n:'너클 커브',dv:4,move:12,d:'빠르고 날카롭게 떨어진다. 무브먼트 +12'},{n:'슬로 커브',dv:-10,move:14,se:-.4,d:'아주 느리다. 구속 차이가 커지고 팔꿈치 부담이 준다'}],
+ '체인지업':[{n:'서클 체인지업',dv:-2,move:14,d:'더 느리고 더 떨어진다. 무브먼트 +14'}],'포크':[{n:'스플리터',dv:5,move:6,se:-.5,d:'5km/h 빨라지고 팔꿈치 부담이 준다'}]};
+const canEvo=p=>!p.t2&&p.mas>=80&&!!EVO[p.grip];
+function evolve(i,j){ const p=G.pitches[i], o=EVO[p.grip][j], old=p.name;
+  if(p.fb) p.rise=1; else { p.dv+=o.dv||0; p.move+=o.move||0; p.se=Math.max(.3,p.se+(o.se??.2)); if(o.ax) p.ax=o.ax; }
+  if(p.name===p.grip) p.name=o.n; p.grip=o.n; p.t2=1; p.mas=55; fatg(8); wear(.3,.6);
+  U.trainMsg=[`'${old}'이(가) ${o.n}(으)로 진화했다. 숙련도는 55에서 다시 쌓는다.`]; U.gains=[['진화',o.n,1]]; U.injured=false; G.phase='ready'; save(); }
+function makePitch(){
+  const g=GRIPS.find(x=>x.id===U.lab.grip), sl=U.lab.slot, sp=U.lab.spin;
+  let dv=g.dv, move=g.move, ctl=0;
+  if(sl==='over'&&g.ax==='v') move*=1.15; if(sl==='side'){ if(g.ax==='h') move*=1.2; dv-=3; } if(sl==='tq') ctl+=3;
+  if(sp==='rev'){move+=10;ctl-=8} if(sp==='spd'){dv+=4;move-=8} if(sp==='safe') ctl+=8;
+  const el=document.getElementById('pname'), nm=((el&&el.value)||'').trim().slice(0,12)||g.n;
+  G.pitches.push({name:nm,grip:g.n,dv,move:Math.round(move),ax:g.ax,ctl,se:g.se,ss:g.ss,mas:20});
+  fatg(8); wear(.3,.6);
+  U.trainMsg=[`새 구종 '${nm}'(${g.n} 그립)을 익혔다. 숙련도 20에서 시작한다.`]; U.gains=[['새 구종',nm,1]]; U.injured=false; G.phase='ready'; save();
+}
+
+/* ---------- 경기: 직접 던지는 구간 ---------- */
+function newAB(){
+  const d=tier().diff, kind=pick(['교타자','장타자','선구안이 좋은 타자']);
+  const b={name:G.league==='big'?pick(FOR):pick(SUR)+pick(GIV),kind,side:R()<.65?'R':'L',contact:d+ri(-8,10)+(kind==='교타자'?10:0),eye:d+ri(-10,10)+(kind[0]==='선'?20:0),power:d+ri(-10,10)+(kind==='장타자'?20:0),sit:R()<.5?'fast':'slow'};
+  const acc=.6+G.stats.men/250, read=R()<acc?b.sit:(b.sit==='fast'?'slow':'fast');
+  return {b,read,conf:acc>.82?'높음':acc>.7?'보통':'낮음',balls:0,strikes:0,hist:[]};
+}
+function startGame(mode){
+  if(mode==='auto') return simPeriod(null);
+  const sp=isSP(), late=G.role==='cl'?[9]:[ri(6,8)]; let segs;
+  if(mode==='inning') segs=[{inn:sp?pick([1,3,5]):late[0],o:0,b:[0,0,0],lead:'선두 타자부터 직접 던진다.'}];
+  else{ const n=sp?2:1, inns=sp?[ri(2,4),ri(5,7)]:late;
+    segs=inns.slice(0,n).map(inn=>{const c=pick(CRISIS);return {inn,o:c.o,b:c.b.slice(),lead:pick(['한 점 차 리드','동점','두 점 차 리드'])+'. 포수가 마운드로 올라왔다.'}}); }
+  U.g={mode,segs,si:-1,runs:0,ks:0,outsGot:0,log:[],sel:0,cell:null}; nextSeg(); G.phase='game'; save();
+}
+function nextSeg(){ const g=U.g; g.si++; if(g.si>=g.segs.length) return finishGame();
+  const s=g.segs[g.si]; g.inn=s.inn; g.outs=s.o; g.bases=s.b.slice(); g.segRuns=0; g.ab=newAB(); g.phase='pick'; g.cell=null; g.last=null; g.burst=null;
+  g.log.unshift(`${s.inn}회 ${['무사','1사','2사'][s.o]} ${baseTxt(s.b)}. ${s.lead}`); }
+const baseTxt=b=>{const n=['1','2','3'].filter((x,i)=>b[i]); return n.length===3?'만루':n.length?n.join('·')+'루':'주자 없음'};
+const sweetW=p=>clamp(22+G.stats.ctl*.16+p.mas*.05+p.ctl*.3,16,44);
+const period=()=>clamp(1700-G.fat*5+G.stats.men*3-(U.g.ab.strikes===2?100:0),900,2200);
+const now=()=>globalThis.performance?performance.now():Date.now();
+const meterPos=()=>{const t=((now()-U.g.mt0)/period())%1; return t<.5?t*200:(1-t)*200};
+function release(){ const g=U.g, p=G.pitches[g.sel], d=Math.abs((g.mshown??meterPos())-50), w=sweetW(p); g.mshown=null;
+  if(d<=w/6) resolvePitch(.2,'완벽한 릴리스'); else if(d<=w/2) resolvePitch(.6,'좋은 릴리스'); else resolvePitch(1.1+d/60,'릴리스가 흔들렸다'); }
+function resolvePitch(f,q){
+  const g=U.g, d=g.ab, p=G.pitches[g.sel], b=d.b, [tr,tc]=g.cell, n=d.hist.length;
+  const sig=clamp(1-G.stats.ctl/120+G.fat/300,.3,1.1)*f;
+  const r=clamp(tr+Math.round(gauss()*sig),0,4), c=clamp(tc+Math.round(gauss()*sig),0,4);
+  const inZ=r>=1&&r<=3&&c>=1&&c<=3, center=r===2&&c===2, cat=p.dv>-9?'fast':'slow', sf=stuff(p);
+  let seq=0; const pv=d.hist[n-1], pv2=d.hist[n-2];
+  if(pv){ const df=Math.abs(pv.dv-p.dv); seq+=df>=20?.12:df>=12?.08:0; if(pv.idx===g.sel){seq-=.06; if(pv2&&pv2.idx===g.sel) seq-=.08;} if(Math.abs(pv.r-r)>=2) seq+=.05; }
+  const match=b.sit===cat; let txt, out=null, burst, tone='', sfx;
+  let pSwing;
+  if(inZ) pSwing=.72+(d.strikes===2?.22:0)-(!match&&d.strikes<2?.14:0);
+  else pSwing=clamp(.2+(sf-50)/250+seq*.5+(d.strikes===2?.12:0)-b.eye/300+(p.ax==='v'&&!p.fb&&r===4?.1:0)+(p.fb&&r===0?.06:0),.05,.7);
+  if(R()<pSwing){
+    const whiff=clamp(.18+(sf-b.contact)/160+seq+(inZ?0:.25)-(match?.15:0)+(center?-.1:.04),.03,.85);
+    if(R()<whiff){ d.strikes++; burst='헛스윙!'; tone='good'; sfx='strike'; txt=match?'노리던 공인데도 못 맞혔다.':'타이밍을 완전히 뺏었다.'; }
+    else if(R()<(inZ?.38:.5)){ if(d.strikes<2) d.strikes++; burst='파울'; sfx='foul'; txt=match?'타이밍이 맞아 나갔다.':'방망이가 늦었다.'; }
+    else{
+      const hitP=clamp(.3+(b.contact-sf)/250+(match?.18:0)+(center?.15:0)-(inZ?0:.15)-seq*.5,.08,.75);
+      if(R()<hitP){ const hr=clamp(b.power/260+(center?.15:0)+(match?.1:0),.03,.6);
+        if(R()<hr){ out='HR'; burst='홈런…'; sfx='hr'; txt='맞는 순간 넘어갔다.'; } else if(R()<.28){ out='XBH'; burst='2루타'; sfx='hit'; txt='좌중간을 갈랐다.'; } else { out='1B'; burst='안타'; sfx='hit'; txt='내야를 빠져나갔다.'; }
+        tone='bad'; }
+      else { out='out'; burst='아웃!'; tone='good'; sfx='out'; txt='빗맞았다.'; }
+    }
+  } else if(inZ){ d.strikes++; burst='스트라이크!'; tone='good'; sfx='strike'; txt=match?'지켜봤다.':'노리던 공이 아니라 그냥 보냈다.'; }
+  else { d.balls++; burst='볼'; sfx='ball'; txt='속지 않았다.'; }
+  if(!out){ if(d.strikes>=3){ out='K'; burst='삼진!'; tone='good'; sfx='k'; } else if(d.balls>=4){ out='bb'; burst='볼넷'; tone='bad'; sfx='bad'; } }
+  d.hist.push({idx:g.sel,dv:p.dv,r,c,tr,tc}); g.last={r,c,tr,tc,ax:p.ax,fb:p.fb};
+  g.log.unshift(`${p.name} ${kmh(p)}km/h, ${q}. ${burst.replace(/[!…]/g,'')}. ${txt}`);
+  wear(p.ss*.09*ageWear(),p.se*.09*ageWear()); fatg(.8); p.mas=clamp(p.mas+1,0,100);
+  const l2=d.hist.slice(-2);
+  if(!out&&l2.length===2){ const cs=l2.map(h=>h.dv>-9?'fast':'slow'); if(cs[0]===cs[1]&&b.sit!==cs[0]&&R()<.6) b.sit=cs[0]; }
+  g.cell=null; g.burst={t:burst,tone}; snd(sfx);
+  if(out) applyOut(out); else g.phase='pick';
+  save();
+}
+function applyOut(out){
+  const g=U.g, b=g.bases; let runs=0, extra='';
+  if(out==='K'){ g.outs++; g.ks++; g.outsGot++; }
+  else if(out==='out'){
+    if(R()<.55&&b[0]&&g.outs<2&&R()<.45){ g.outs+=2; g.outsGot+=2; b[0]=0; extra='병살타!'; g.burst={t:'병살!',tone:'good'}; }
+    else if(b[2]&&g.outs<2&&R()<.4){ g.outs++; g.outsGot++; b[2]=0; runs=1; extra='희생플라이로 한 점을 내줬다.'; }
+    else { g.outs++; g.outsGot++; }
+  }
+  else if(out==='bb'){ if(b[0]&&b[1]&&b[2]) runs=1; else if(b[0]&&b[1]) b[2]=1; else if(b[0]) b[1]=1; b[0]=1; if(runs) extra='밀어내기 실점.'; }
+  else if(out==='1B'){ runs+=b[2]; b[2]=0; if(b[1]){ if(R()<.6) runs++; else b[2]=1; b[1]=0; } if(b[0]){ b[1]=1; } b[0]=1; }
+  else if(out==='XBH'){ runs+=b[2]+b[1]; b[2]=0; b[1]=0; if(b[0]){ if(R()<.4) runs++; else b[2]=1; b[0]=0; } b[1]=1; }
+  else if(out==='HR'){ runs=1+b[0]+b[1]+b[2]; g.bases=[0,0,0]; }
+  g.runs+=runs; g.segRuns+=runs;
+  if(runs&&out!=='out'&&out!=='bb') extra=`${runs}점을 내줬다.`;
+  if(extra) g.log.unshift(extra);
+  if(g.outs>=3){ g.phase='segEnd'; g.endTxt=g.segRuns?`이닝 종료. 이 이닝에 ${g.segRuns}점을 내줬다.`:'이닝 종료. 무실점으로 막았다.'; }
+  else if(g.segRuns>=4){ g.phase='segEnd'; g.endTxt='감독이 공을 받으러 올라왔다. 강판.'; }
+  else g.phase='abEnd';
+}
+function finishGame(){ const g=U.g; if(g.tryout) return tryoutEnd(g); const adj=clamp(g.runs*.5-.45-g.ks*.12,-1.1,2); simPeriod(adj,g); }
+
+function tryoutEnd(g){ const t=G.flags.try, pass=g.runs<=1; U.g=null; G.flags.try=null; fatg(-10);
+  let res; if(pass){ joinTeam(t.to,50,'fut'); res=`${g.runs}실점으로 막았다. 합격. ${KBO[t.to].n} 2군에서 프로 생활을 시작한다.`; }
+  else { joinTeam(t.back,38,'fut'); res=`${g.runs}점을 내줬다. 불합격. 지명했던 ${KBO[t.back].n}가 다시 받아 줬지만 시선이 곱지 않다. 구단 신뢰 38에서 시작한다.`; }
+  U.ev={e:{t:'입단 테스트 결과',b:'공을 내려놓자 스카우트들이 수첩을 덮었다.',ch:[]},res,next:'train'}; G.phase='event'; save(); }
+/* ---------- 일정 결산 ---------- */
+function simPeriod(adj,g){
+  const L=tier(), tm=team(), s=G.stats, best=Math.max(...G.pitches.map(stuff)), lines=[], chips=[];
+  let e=clamp(4.6-(rating()-L.diff)*.09+(adj||0)+(G.fat>70?.5:0)+(R()-.5),.8,9.9);
+  const sp=isSP(), cl=!sp&&G.role==='cl', games=G.league==='hs'?4:G.league==='col'?5:sp?7:cl?13:14;
+  const ip=Math.round(sp?games*clamp(3.5+s.sta/22,4,8):games*(cl?1:1.1)), er=Math.round(e*ip/9), k=Math.round(ip*(5+best/14)/9);
+  e=er*9/ip;
+  const wp=clamp(.5+(4.3-e)*.1+(tm.str||0),.12,.88); let w=0,l=0; const dec=sp?Math.round(games*.7):ri(1,3);
+  for(let i=0;i<dec;i++) R()<wp?w++:l++;
+  const sv=cl?Math.round(games*.75*wp):0, hd=(!sp&&!cl)?Math.round(games*.45*wp):0;
+  let bonus=sv*4+hd*2.5, t0=G.trust, f0=G.fans; if(cl) fans(1);
+  if(g){ G.career.dt++; const clean=g.runs===0; if(clean) G.career.dw++; bonus+=(clean?12:0)+g.ks*4+g.outsGot*2;
+    fans(clean?3+g.ks:g.ks*.5-Math.min(g.runs,3)*.7); trust(clean?2:-1);
+    lines.push(`직접 던진 구간: 아웃 ${g.outsGot}개, 삼진 ${g.ks}개, ${g.runs}실점`); }
+  const sc=Math.max(0,Math.round((ip*2+k-er*3+w*6+bonus)*L.mult));
+  for(const o of [G.season,G.career]){o.w+=w;o.l+=l;o.ip+=ip;o.er+=er;o.k+=k;o.sv=(o.sv||0)+sv;o.hd=(o.hd||0)+hd}
+  G.career.score+=sc;
+  trust(clamp((4.2-e)*1.5,-5,5)); fans(clamp((4.3-e)*1.0-.4,-3,3));
+  const wm=(1+G.fat/120)*ageWear(), base=sp?1.2:cl?.7:.8; wear(base*wm,base*wm);
+  fatg((sp?12:cl?8:9)*(1.2-s.sta/200)-10);
+  lines.unshift(`${club()} · ${L.turns[G.turn]}: ${games}경기 ${ip}이닝 ${w}승 ${l}패${sv?` ${sv}세이브`:''}${hd?` ${hd}홀드`:''}, 자책 ${er}, 탈삼진 ${k} (평균자책 ${f1(e)})`);
+  chips.push(['구단 신뢰',G.trust-t0],['팬 인기',G.fans-f0]);
+  U.report={lines,chips}; U.g=null; G.phase='report'; save();
+}
+function skipPeriod(){ fatg(-15); trust(-1); U.report={lines:['부상으로 이번 일정을 쉬었다.'],chips:[]}; G.phase='report'; save(); }
+
+/* ---------- 일정 사이 이벤트 ---------- */
+const EV=[
+ {id:'yeontu',c:()=>!amateur(),t:'감독의 연투 지시',b:'"오늘도 대기해라." 어제 던진 팔이 아직 뻐근하다.',ch:[
+   ['던지겠다고 한다',()=>{wear(2.5,3);fatg(15);trust(8);fans(3);G.career.score+=30;return '막아 냈다. 구단 신뢰 +8, 팬 인기 +3. 팔은 더 무거워졌다.'}],
+   ['오늘은 어렵다고 말한다',()=>{st('men',2);trust(-6);return '감독의 표정이 굳었다. 구단 신뢰 -6, 멘탈 +2'}]]},
+ {id:'pain',c:()=>G.fat>55,t:'팔꿈치가 찌릿하다',b:'캐치볼을 하는데 평소와 다른 통증이 스친다.',ch:[
+   ['참고 던진다',()=>{if(R()<.45){wear(0,9);return '통증이 심해졌다. 팔꿈치 -9'} trust(2);return '다행히 단순 근육통이었다. 구단 신뢰 +2'}],
+   ['트레이너에게 알리고 쉰다',()=>{fatg(-30);wear(0,-2);trust(-2);return '며칠 쉬며 치료를 받았다. 피로 -30, 구단 신뢰 -2'}]]},
+ {id:'vet',c:()=>!amateur(),t:'베테랑의 조언',b:'은퇴를 앞둔 선배가 불펜에서 손짓한다. "하나만 알려 줄게."',ch:[
+   ['공 쥐는 법을 묻는다',()=>{st('brk',3);return '손가락 끝의 감각이 달라졌다. 변화 +3'}],
+   ['위기에서 버티는 법을 묻는다',()=>{st('men',4);return '"타자도 떨고 있다." 멘탈 +4'}]]},
+ {id:'press',c:()=>G.fans>20,t:'경기 전 인터뷰',b:'기자가 묻는다. "내일 상대 타선, 자신 있습니까?"',ch:[
+   ['"삼진 열 개 잡겠습니다"',()=>{if(R()<.5){fans(8);st('men',2);return '말한 대로 됐다. 팬 인기 +8, 멘탈 +2'} fans(-5);st('men',-3);return '난타당했다. 팬 인기 -5, 멘탈 -3'}],
+   ['"한 타자씩 상대하겠습니다"',()=>{trust(2);return '무난하게 넘어갔다. 구단 신뢰 +2'}]]},
+ {id:'role',c:()=>!amateur()&&!G.flags.role,t:'보직 변경 제안',b:()=>`투수 코치가 묻는다. "${RN[roleTo()]}${roleTo()==='sp'?'으로':'로'} 가 보는 건 어때?" ${roleTo()==='sp'?'이닝이 늘고 팔 부담도 는다.':roleTo()==='cl'?'9회를 맡는다. 팔 부담은 가장 적다.':'이닝이 줄고 팔 부담이 준다.'}`,ch:[
+   ['받아들인다',()=>{G.flags.role=1;G.role=roleTo();trust(5);return `${RN[G.role]} 투수가 됐다. 구단 신뢰 +5`}],
+   ['지금 자리를 지킨다',()=>{G.flags.role=1;trust(-3);return '지금 보직을 계속 맡기로 했다. 구단 신뢰 -3'}]]},
+ {id:'nat',c:()=>G.fans>45&&!amateur(),t:'국가대표 차출',b:'시즌 중 국제 대회 명단에 이름이 올랐다. 구단은 내심 보내고 싶지 않은 눈치다.',ch:[
+   ['대표팀에 간다',()=>{wear(2,2);fatg(20);fans(12);trust(-3);G.career.score+=80;return '큰 무대에서 던졌다. 팬 인기 +12, 구단 신뢰 -3'}],
+   ['몸 상태를 이유로 고사한다',()=>{fatg(-10);trust(4);fans(-4);return '시즌에 집중하기로 했다. 구단 신뢰 +4, 팬 인기 -4'}]]},
+ {id:'salary',c:()=>G.league==='pro'&&G.trust>40,t:'연봉 협상',b:'단장이 내민 금액은 기대보다 낮다. "팀 사정이 어렵다. 내년에 꼭 챙겨 주마."',ch:[
+   ['도장을 찍는다',()=>{trust(9);return '구단은 이 일을 기억할 것이다. 구단 신뢰 +9'}],
+   ['조정을 신청한다',()=>{trust(-10);fans(2);st('men',2);return '제 몫을 받아 냈다. 구단 신뢰 -10, 멘탈 +2'}]]},
+ {id:'beanball',c:()=>!amateur(),t:'다시 만난 타자',b:'지난번 홈런을 치고 방망이를 던진 그 타자다. 포수가 사인을 낸다.',ch:[
+   ['몸쪽으로 바짝 붙인다',()=>{ if(R()<.55){fans(5);st('men',2);return '타자가 물러섰고 삼진으로 끝냈다. 팬 인기 +5, 멘탈 +2'} trust(-4);return '공이 빠져 몸에 맞았다. 벤치가 비워졌다. 구단 신뢰 -4'}],
+   ['바깥쪽으로 승부한다',()=>{st('men',1);return '범타로 잡았다. 멘탈 +1'}]]},
+ {id:'signs',c:()=>!amateur(),t:'포수와의 갈등',b:'포수가 낸 사인에 세 번 고개를 저었다. 이닝이 끝나고 포수가 다가온다.',ch:[
+   ['내 볼배합을 설명하고 고집한다',()=>{st('men',2);trust(-3);return '포수는 말없이 돌아섰다. 멘탈 +2, 구단 신뢰 -3'}],
+   ['다음부터는 사인대로 던지겠다고 한다',()=>{trust(3);st('ctl',1);return '호흡이 편해졌다. 구단 신뢰 +3, 제구 +1'}]]},
+ {id:'sns',c:()=>G.fans>15,t:'악성 댓글',b:'부진한 날 밤, 휴대전화에 알림이 쏟아진다.',ch:[
+   ['맞받아친다',()=>{ if(R()<.35){fans(4);return '뜻밖에 응원이 쏟아졌다. 팬 인기 +4'} fans(-6);st('men',-1);return '기사가 났다. 팬 인기 -6, 멘탈 -1'}],
+   ['계정을 닫는다',()=>{st('men',2);fans(-2);return '조용해졌다. 멘탈 +2, 팬 인기 -2'}],
+   ['농담으로 받아넘긴다',()=>{ if(G.stats.men>=45){fans(5);return '답글이 화제가 됐다. 팬 인기 +5'} st('men',-2);return '쓰고 나서도 마음이 가라앉지 않는다. 멘탈 -2'}]]},
+ {id:'ad',c:()=>G.fans>30&&!amateur(),t:'광고 촬영',b:'지역 기업에서 광고 모델 제안이 왔다. 촬영은 시즌 중 쉬는 날이다.',ch:[
+   ['찍는다',()=>{fans(6);fatg(12);trust(-1);return '버스 정류장에 얼굴이 붙었다. 팬 인기 +6, 피로 +12'}],
+   ['시즌이 끝난 뒤로 미룬다',()=>{trust(2);return '구단이 고마워했다. 구단 신뢰 +2'}]]},
+ {id:'allstar',c:()=>G.fans>40&&(G.league==='pro'||G.league==='big'),t:'올스타전',b:'팬 투표로 올스타에 뽑혔다. 쉬어야 할 시기이기도 하다.',ch:[
+   ['전력으로 던진다',()=>{fans(8);wear(1.5,1.5);return '세 타자 연속 삼진. 팬 인기 +8, 팔을 조금 썼다.'}],
+   ['한 이닝만 가볍게 던진다',()=>{fans(3);fatg(-5);return '팬 인기 +3'}]]},
+ {id:'rainout',c:()=>true,t:'우천 취소',b:'경기가 취소됐다. 구장은 비어 있고 실내 불펜은 열려 있다.',ch:[
+   ['그대로 쉰다',()=>{fatg(-20);return '피로 -20'}],
+   ['실내 불펜에서 던진다',()=>{st('ctl',1.5);fatg(5);return '제구 +1.5, 피로 +5'}]]},
+ {id:'newcoach',c:()=>!amateur(),t:'새 투수 코치',b:'새로 온 투수 코치는 생각이 다르다. "네 투구 수, 반으로 줄여야 해."',ch:[
+   ['코치의 방식을 따른다',()=>{trust(5); if(R()<.6){const k=pick(['ctl','brk','men']);st(k,2);return `맞는 말이었다. 구단 신뢰 +5, ${SN[k]} +2`} st('sta',-1);return '몸이 덜 풀린 채 경기에 나갔다. 구단 신뢰 +5, 체력 -1'}],
+   ['내 루틴을 지킨다',()=>{st('men',2);trust(-3);return '멘탈 +2, 구단 신뢰 -3'}]]},
+ {id:'junior',c:()=>G.year>=4&&!amateur(),t:'후배의 부탁',b:'신인 투수가 쭈뼛거리며 다가온다. "선배님 변화구, 어떻게 쥐는지 알려 주실 수 있습니까?"',ch:[
+   ['손을 잡고 알려 준다',()=>{trust(4);fans(1);return '후배의 공이 꺾이기 시작했다. 구단 신뢰 +4'}],
+   ['"그건 네가 찾아야지"',()=>{st('men',1);trust(-2);return '멘탈 +1, 구단 신뢰 -2'}]]},
+ {id:'charity',c:()=>G.fans>20,t:'삼진 하나에 연탄 열 장',b:'구단 사회공헌팀이 삼진 기부 캠페인을 제안한다.',ch:[
+   ['참여한다',()=>{fans(5);st('men',1);fatg(4);return '삼진을 잡는 이유가 하나 늘었다. 팬 인기 +5, 멘탈 +1'}],
+   ['조용히 따로 기부한다',()=>{st('men',2);return '아무도 모른다. 멘탈 +2'}]]},
+ {id:'ump',c:()=>true,t:'좁은 스트라이크존',b:'오늘 주심은 낮은 공을 하나도 잡아 주지 않는다. 만루에서 또 볼 판정이 나왔다.',ch:[
+   ['마운드를 내려가 항의한다',()=>{ if(R()<.5){fans(4);return '감독이 달려 나와 함께 싸워 줬다. 팬 인기 +4'} trust(-5);return '퇴장당했다. 구단 신뢰 -5'}],
+   ['모자를 고쳐 쓰고 다시 던진다',()=>{st('men',2);return '멘탈 +2'}]]},
+ {id:'dh',c:()=>G.league==='pro'||G.league==='big',t:'더블헤더',b:'두 번째 경기, 불펜에 남은 투수가 없다. 감독이 벤치를 둘러본다.',ch:[
+   ['손을 든다',()=>{trust(7);fatg(18);wear(1.5,1.5);return '두 이닝을 막았다. 구단 신뢰 +7, 피로 +18'}],
+   ['눈을 피한다',()=>{trust(-2);return '야수가 마운드에 올랐다. 구단 신뢰 -2'}]]},
+ {id:'slump',c:()=>G.season.ip>0&&era(G.season)>4.8,t:'슬럼프',b:'공이 자꾸 가운데로 몰린다. 뭘 해야 할지 모르겠다.',ch:[
+   ['밤새 영상을 돌려 본다',()=>{st('ctl',2);fatg(6);return '디딤발 위치가 달라져 있었다. 제구 +2, 피로 +6'}],
+   ['하루 야구를 잊고 낚시를 간다',()=>{fatg(-20);st('men',2);return '피로 -20, 멘탈 +2'}],
+   ['공을 더 던진다',()=>{st('velo',1);fatg(12);wear(1,1);return '구속 +1, 피로 +12'}]]},
+ {id:'gear',c:()=>G.fans>10,t:'새 스파이크',b:'용품 회사에서 신제품을 보내왔다. 발에 익은 스파이크는 밑창이 닳았다.',ch:[
+   ['새것으로 바꾼다',()=>{fans(2); if(R()<.5){st('ctl',2);return '디딤발이 단단히 박힌다. 제구 +2, 팬 인기 +2'} st('ctl',-1);return '발이 겉돈다. 제구 -1, 팬 인기 +2'}],
+   ['쓰던 것을 수선해 신는다',()=>{st('men',1);return '멘탈 +1'}]]},
+ {id:'school',c:()=>!amateur()&&G.year>=3,t:'모교의 초대',b:()=>`${G.school} 야구부 감독이 전화를 했다. "후배들한테 한마디 해 줄 수 있겠나."`,ch:[
+   ['다녀온다',()=>{fans(3);st('men',2);fatg(5);return '운동장 흙 냄새가 그대로였다. 팬 인기 +3, 멘탈 +2, 피로 +5'}],
+   ['영상 편지를 보낸다',()=>{fans(1);return '팬 인기 +1'}]]},
+ {id:'wild',c:()=>!amateur(),t:'끝내기 폭투',b:'내 손을 떠난 공이 백네트까지 굴렀고 경기는 그대로 끝났다. 라커룸이 조용하다.',ch:[
+   ['동료들 앞에서 사과한다',()=>{trust(4);st('men',-1);return '주장이 어깨를 두드렸다. 구단 신뢰 +4, 멘탈 -1'}],
+   ['말없이 불펜으로 간다',()=>{st('ctl',1.5);fatg(8);return '공 쉰 개를 더 던졌다. 제구 +1.5, 피로 +8'}]]},
+ {id:'scoutv',c:()=>amateur(),t:'관중석의 스카우트',b:'프로 스카우트 세 명이 백네트 뒤에 앉았다. 오늘 무엇을 보여 줄까.',ch:[
+   ['직구로 밀어붙인다',()=>{st('velo',1.5);wear(1,0);return '구속 +1.5, 어깨 -1'}],
+   ['변화구를 섞어 타이밍을 뺏는다',()=>{st('brk',1.5);masAll(2);return '변화 +1.5, 모든 구종 숙련 +2'}]]},
+ {id:'exam',c:()=>amateur(),t:'시험 기간',b:'감독이 말한다. "운동선수도 학생이다. 시험은 보고 와라."',ch:[
+   ['책상에 앉는다',()=>{st('men',2);fatg(-8);return '오랜만에 팔을 쉬었다. 멘탈 +2, 피로 -8'}],
+   ['몰래 운동장에 나간다',()=>{const k=pick(['velo','ctl','brk']);st(k,1.5);fatg(6);return `${SN[k]} +1.5, 피로 +6`}]]},
+ {id:'friend',c:()=>amateur(),t:'친구의 포기',b:'같이 야구를 시작한 친구가 야구부를 그만둔다고 한다.',ch:[
+   ['마지막으로 캐치볼을 한다',()=>{st('men',3);return '"너는 끝까지 가라." 멘탈 +3'}],
+   ['붙잡아 본다',()=>{ if(R()<.4){st('men',2);st('sta',1);return '친구는 남았고 둘이 새벽 운동을 시작했다. 멘탈 +2, 체력 +1'} st('men',-1);return '마음을 돌리지 못했다. 멘탈 -1'}]]},
+ {id:'tj',c:()=>G.arm.el<35&&!G.flags.tj,t:'수술 권유',b:'"인대가 많이 상했습니다. 수술하면 한 시즌을 통째로 쉬어야 합니다."',ch:[
+   ['수술을 받는다',()=>{G.flags.tj=1;G.arm.el=Math.min(G.arm.max,78);G.out=4;G.outWhy='수술 후 재활 중';st('velo',-2);G.fat=0;return '수술은 잘 끝났다. 네 번의 일정을 재활로 보낸다. 팔꿈치 78로 회복, 구속 -2'}],
+   ['수술 없이 버틴다',()=>{G.flags.tj=1;return '주사와 재활로 버티기로 했다.'}]]}
+];
+const roleTo=()=>G.role==='sp'?'mr':G.role==='mr'?(G.stats.sta>=55?'sp':'cl'):'mr';
+const EV_MIL={id:'mil',t:'입영을 언제 할까',b:'병역을 마쳐야 한다. 지금 다녀오면 한 시즌을 비우지만 팔이 쉰다.',ch:[
+   ['지금 다녀온다',()=>{G.flags.mil=2;G.out=4;G.outWhy='군 복무 중';wear(-12,-12);st('men',3);G.fat=0;return '한 시즌을 비운다. 쉬는 동안 어깨와 팔꿈치 +12, 멘탈 +3'}],
+   ['지금은 자리를 비울 수 없다. 미룬다',()=>'28세가 되면 더는 미룰 수 없다. 그때 가면 구속이 2 떨어진다.']]};
+const EV_MILF={id:'milf',t:'입영 통지',b:'더는 미룰 수 없다. 한 시즌을 비우고 군 복무를 마친다.',ch:[['다녀오겠습니다',()=>{G.out=4;G.outWhy='군 복무 중';st('velo',-2);wear(-10,-10);G.fat=0;return '짐을 쌌다. 어깨와 팔꿈치 +10, 구속 -2'}]]};
+const EV_30={id:'e30',t:'서른, 어떤 투수로 남을까',b:'공이 예전 같지 않다는 걸 타자들이 먼저 안다.',ch:[
+   ['기교파로 변신한다',()=>{st('velo',-4);st('ctl',6);st('brk',4);G.wearMul=.85;return '구속 -4, 제구 +6, 변화 +4. 앞으로 팔 소모가 15% 줄어든다.'}],
+   ['구속을 되찾는 데 매달린다',()=>{st('velo',3);wear(5,2);return '구속 +3, 어깨 -5, 팔꿈치 -2'}],
+   ['지금 스타일을 지킨다',()=>{st('men',2);return '흔들리지 않기로 했다. 멘탈 +2'}]]};
+const EV_TOUR={id:'tour',t:'마지막을 정할 것인가',b:'단장이 묻는다. "내년에도 던질 건가, 아니면 올해를 마지막으로 은퇴 투어를 할 건가."',ch:[
+   ['올해가 마지막이다. 은퇴 투어를 한다',()=>{G.flags.tour=1;fans(20);trust(10);return '마지막 시즌이 시작된다. 팬 인기 +20, 구단 신뢰 +10. 이번 시즌이 끝나면 은퇴한다.'}],
+   ['팔이 붙어 있는 한 던진다',()=>{st('men',2);return '아직 끝이 아니다. 멘탈 +2'}]]};
+const EV_COACH={id:'coach',t:'플레잉코치 제안',b:'감독이 부른다. "던지면서 어린 투수들도 좀 봐 주면 어떻겠나."',ch:[
+   ['플레잉코치를 맡는다',()=>{G.flags.coach=1;G.grow=(G.grow||1)*.7;trust(15);return '구단 신뢰 +15. 내 훈련 효과는 30% 줄어들고, 은퇴할 때 지도자 점수를 받는다.'}],
+   ['선수로만 뛴다',()=>'아직은 내 공에 집중한다.']]};
+function ageOffer(){ const f=G.flags, a=G.age;
+  if(f.mil!==2){ if(a>=28){ f.mil=2; return EV_MILF; } if(a>=22&&!f.mil){ f.mil=1; return EV_MIL; } }
+  if(a>=30&&!f.e30){ f.e30=1; return EV_30; }
+  if(a>=35&&!f.e35){ f.e35=1; return EV_TOUR; }
+  if(a>=36&&!f.e36&&G.trust>=50&&!f.tour){ f.e36=1; return EV_COACH; }
+  return null; }
+function draftInfo(){ const r=rating(), rd=r>=50?1:r>=44?2:r>=38?4:8; let a=ri(0,9),b,c; do{b=ri(0,9)}while(b===a); do{c=ri(0,9)}while(c===a||c===b);
+  return {rd,team:a,alt:[b,c],direct:r>=56,pending:1,col:G.league==='col'}; }
+function joinTeam(t,tv,lg){ G.team=t; G.trust=tv; G.league=lg; G.teamYears=0; G.flags.draft=null; }
+function draftEvent(){ const d=G.flags.draft, t=KBO[d.team];
+  const ch=[[`${t.n}에 입단한다 (${t.tag})`,()=>{joinTeam(d.team,62-d.rd*3,d.direct?'pro':'fut');fans(9-d.rd);return `${t.n} 유니폼을 입었다. ${d.direct?'즉시 전력감으로 1군에서 시작한다.':'2군에서 프로 생활을 시작한다.'}`}]];
+  for(const a of d.alt) ch.push([`지명을 거절하고 ${KBO[a].n} 입단 테스트를 본다 (${KBO[a].tag})`,()=>{G.flags.try={to:a,back:d.team}; U.ev.next='tryout'; return `${KBO[a].n} 2군 구장. 타자를 세워 놓고 한 이닝을 던진다. 1점 이하로 막으면 합격이다.`}]);
+  if(!d.col) ch.push(['대학에 진학한다 (4년 뒤 다시 드래프트)',()=>{G.league='col';G.univ=pick(UNIVS);G.flags.draft=null;G.flags.colN=0;st('men',3);return `${G.univ}에 입학했다. 대학에서는 훈련 효과가 15% 높고 경기 부담이 적다. 대신 프로 입단이 4년 늦어진다. 멘탈 +3`}]);
+  return {id:'draft',t:d.col?'두 번째 드래프트':'드래프트의 날',b:`${t.n}가 ${d.rd}라운드에서 이름을 불렀다. 꼭 이 팀이어야 할까.`,ch}; }
+const EV_BIG={id:'big',t:'해외 스카우트의 제안',b:'빅리그 구단이 계약서를 내밀었다. 타자는 훨씬 강하고 성적 점수는 1.6배로 쌓인다. 지금 구단과 쌓은 관계는 처음부터 다시다.',ch:[
+   ['비행기를 탄다',()=>{G.league='big';G.bteam=ri(0,BIG.length-1);G.oneClub=false;G.trust=45;G.teamYears=0;fans(8);return `${BIG[G.bteam].n}에 입단했다.`}],
+   ['국내에 남는다',()=>{trust(10);fans(5);return '익숙한 마운드에 남기로 했다. 구단 신뢰 +10'}]]};
+const EV_FA={id:'fa',t:'자유계약 자격을 얻었다',b:()=>`${team().n}에서 보낸 시간이 길다. 다른 구단이 더 큰 계약을 들고 왔다.`,ch:[
+   ['남는다',()=>{trust(15);fans(10);return '"여기서 끝까지 던지겠습니다." 구단 신뢰 +15, 팬 인기 +10'}],
+   ['이적한다',()=>{let t; do{t=ri(0,KBO.length-1)}while(t===G.team); G.team=t;G.oneClub=false;G.trust=55;G.teamYears=0;fans(-15);G.career.score+=150;return `${KBO[t].n}로 옮겼다. 큰 계약을 받았고, 옛 팬들은 등을 돌렸다.`}]]};
+
+/* ---------- 진행 ---------- */
+function afterReport(){
+  if(checkRetire()) return;
+  const ok=EV.filter(e=>e.c());
+  if(ok.length&&R()<.55){ const e=pickEv(ok,'seenE'); U.ev={e,next:'turn'}; G.phase='event'; save(); return; }
+  nextTurn();
+}
+function nextTurn(){ if(checkRetire()) return; G.turn++; if(G.turn>=4) return endSeason(); G.phase='train'; U.hard=false; save(); }
+function checkRetire(){ if(G.arm.sh<=0||G.arm.el<=0){ retire(G.arm.sh<=0?'어깨가 더는 버티지 못했다.':'팔꿈치가 더는 버티지 못했다.'); return true; } return false; }
+function endSeason(){
+  const s=G.season, e=era(s), tm=team(), msg=[], from=G.league, r=rating(); let offer=null;
+  G.hist.push({y:G.year,age:G.age,lg:club(),w:s.w,l:s.l,ip:s.ip,era:e,k:s.k});
+  if(!amateur(from)){ G.trustSum+=G.trust*.8; G.teamYears++; }
+  if(G.flags.tour===1) G.flags.tour=2;
+  if(from==='pro'||from==='big'){ G.proYears++;
+    if(s.ip>=60&&e<=2.6){ G.titles+=(tm.title||1); fans(10); trust(6); msg.push('평균자책 1위 타이틀을 차지했다.'); }
+    if(s.k>=190){ G.titles+=(tm.title||1); fans(8); msg.push('탈삼진왕에 올랐다.'); }
+    if((s.sv||0)>=30){ G.titles+=(tm.title||1); fans(8); msg.push('세이브왕에 올랐다.'); } }
+  if(from==='hs'){ G.flags.draft=draftInfo(); offer='draft'; }
+  else if(from==='col'){ G.flags.colN=(G.flags.colN||0)+1; G.age++; if(G.flags.colN>=2){ G.flags.draft=draftInfo(); offer='draft'; } else msg.push('대학 2학년을 마쳤다. 2년 뒤 다시 드래프트에 나선다.'); }
+  else if(from==='fut'){ if(!s.ip) msg.push('한 시즌을 통째로 비웠다.'); else if(e<=(tm.promo?4.3:3.9)||r>=(tm.promo?47:50)){ G.league='pro'; G.futYears=0; msg.push('1군에 승격했다.'); } else { G.futYears++; msg.push(`1군의 부름을 받지 못했다. 2군 ${G.futYears}년째.`); } }
+  else if(from==='pro'&&s.ip>0){
+    if(e>=6.3){ if(G.trust>=70){ trust(-15); msg.push('성적은 나빴지만 감독이 한 번 더 믿어 주기로 했다. 구단 신뢰가 크게 깎였다.'); } else { G.league='fut'; msg.push('부진 끝에 2군으로 내려갔다.'); } }
+    else if(G.trust<20){ let t; do{t=ri(0,KBO.length-1)}while(t===G.team); G.team=t; G.oneClub=false; G.trust=45; G.teamYears=0; msg.push(`구단과 사이가 틀어져 ${KBO[t].n}로 트레이드됐다.`); }
+    else if(G.fans>=45&&e<=3.5&&!G.flags.big){ G.flags.big=1; offer=EV_BIG; }
+    else if(G.proYears>=8&&!G.flags.fa){ G.flags.fa=1; offer=EV_FA; } }
+  else if(from==='big'&&s.ip>0&&e>=6.5){ G.league='pro'; G.trust=50; msg.push(`빅리그에서 방출돼 ${KBO[G.team].n}로 돌아왔다.`); }
+  G.age++; G.year++; G.turn=0; G.season={w:0,l:0,ip:0,er:0,k:0}; fatg(-40); G.flags.role=0;
+  if(G.age>=32){ const d=1+(G.age-32)*.4; st('velo',-d); st('sta',-1); msg.push(`나이가 든다. 구속 -${f1(d)}, 체력 -1`); }
+  if(!offer&&!amateur()&&G.flags.tour!==2) offer=ageOffer();
+  U.seasonMsg={msg,e,s,from:G.hist[G.hist.length-1].lg,offer}; G.phase='season'; save();
+}
+function afterSeason(){
+  if(G.flags.tour===2) return retire('은퇴 투어를 마치고 박수 속에 마운드를 내려왔다.');
+  if(G.futYears>=5) return retire('2군에서 다섯 시즌을 보낸 끝에 방출 통보를 받았다.');
+  if(G.age>=41) return retire('마흔을 넘겨 스스로 유니폼을 벗었다.');
+  const m=U.seasonMsg; U.seasonMsg=null;
+  if(m&&m.offer){ U.ev={e:m.offer==='draft'?draftEvent():m.offer,next:'train'}; G.phase='event'; save(); return; }
+  G.phase='train'; U.hard=false; save();
+}
+function retire(why){
+  const sig=G.pitches.filter(p=>!p.fb).sort((a,b)=>b.mas-a.mas)[0], c=G.career;
+  const rows=[['성적',Math.round(c.score)],['타이틀',Math.round(G.titles*150)],['팬 인기',Math.round(G.fans*6)],['구단과의 관계',Math.round(G.trustSum)]];
+  if(G.oneClub&&G.proYears>=8) rows.push(['원클럽맨',300]);
+  if(G.flags.coach) rows.push(['지도자',200]); if(G.flags.tour===2) rows.push(['은퇴 투어',150]);
+  const num=!amateur()&&G.trust>=75&&G.fans>=65&&G.teamYears>=9; if(num) rows.push(['영구결번',500]);
+  G.final={why,rows,score:rows.reduce((a,b)=>a+b[1],0),sig:sig?`${sig.name}(${sig.grip})`:'직구',num,club:team().n}; G.phase='retire'; save();
+}
+function registerRank(){
+  const el=document.getElementById('rid'), nick=((el&&el.value)||'').trim().slice(0,12)||'게스트';
+  const list=store.get('acearm.rank2')||[], c=G.career;
+  list.push({n:nick,p:G.name,s:G.final.score,t:rankDetail(),d:Date.now()});
+  list.sort((a,b)=>b.s-a.s); store.set('acearm.rank2',list.slice(0,30)); store.set('acearm.nick',nick);
+  G.final.reg=1; save();
+}
+
+/* ---------- 통합 랭킹 서버 ---------- */
+const API='https://dqyxxvdsbrbdynodxzde.supabase.co/rest/v1/rpc/', KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeXh4dmRzYnJiZHlub2R4emRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ0MTY4NjQsImV4cCI6MjEwOTk5Mjg2NH0.7HrCFCRppPpdIbNu84lQwytHt5CpAAqG8-skNjW4e9s';
+async function rpc(fn,body){ const c=new AbortController(), t=setTimeout(()=>c.abort(),10000);
+  try{ const r=await fetch(API+fn,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:'Bearer '+KEY},body:JSON.stringify(body||{}),signal:c.signal}); if(!r.ok) throw new Error(r.status); return await r.json(); } finally{ clearTimeout(t); } }
+const REGERR={id:'아이디는 2~12자의 한글, 영문, 숫자로 정한다.',pw:'비밀번호는 4자 이상이어야 한다.',auth:'이미 있는 아이디다. 비밀번호가 다르다.',rate:'너무 자주 올렸다. 1분 뒤에 다시 시도한다.',score:'점수가 올바르지 않다.',net:'랭킹 서버에 연결하지 못했다. 잠시 뒤 다시 시도하거나 게스트로 남길 수 있다.'};
+function rankDetail(){ const c=G.career; return `${G.final.club} · ${c.w}승 ${c.l}패${c.sv?` ${c.sv}세`:''} · ${G.final.sig}`; }
+function registerOnline(){
+  const id=(document.getElementById('rid')||{}).value||'', pw=(document.getElementById('rpw')||{}).value||'';
+  U.rid=id; U.rpw=pw; U.regErr=null;
+  if(id.trim().length<2){ U.regErr=REGERR.id; return; } if(pw.length<4){ U.regErr=REGERR.pw; return; }
+  U.regBusy=true;
+  rpc('submit_score',{p_id:id,p_pw:pw,p_pitcher:G.name,p_score:G.final.score,p_detail:rankDetail()})
+   .then(r=>{ if(r&&r.ok){ G.final.reg=2; store.set('acearm.id',r.id); U.rpw=''; save(); } else U.regErr=REGERR[(r&&r.err)]||REGERR.net; })
+   .catch(()=>{ U.regErr=REGERR.net; }).then(()=>{ U.regBusy=false; render(); });
+}
+function loadRank(){ U.grank=null; rpc('get_ranking').then(r=>{ U.grank=Array.isArray(r)?r:'err'; }).catch(()=>{ U.grank='err'; }).then(()=>{ if(U.rank) render(); }); }
+/* ---------- 경기장 그림 ---------- */
+function drawScene(cv,o){
+  if(!cv||!cv.getContext) return; const x=cv.getContext('2d'), W=cv.width, H=cv.height; let sd=7; const rnd=()=>(sd=(sd*16807)%2147483647)/2147483647;
+  let g=x.createLinearGradient(0,0,0,H*.4); g.addColorStop(0,'#050b17'); g.addColorStop(1,'#16305a'); x.fillStyle=g; x.fillRect(0,0,W,H*.4);
+  for(const lx of [.08,.3,.7,.92]){ const rg=x.createRadialGradient(W*lx,H*.04,2,W*lx,H*.04,W*.13); rg.addColorStop(0,'rgba(255,244,214,.9)'); rg.addColorStop(.12,'rgba(255,236,180,.22)'); rg.addColorStop(1,'rgba(255,236,180,0)'); x.fillStyle=rg; x.fillRect(0,0,W,H*.4); }
+  x.fillStyle='#172640'; x.fillRect(0,H*.16,W,H*.2);
+  const cols=['#e9e2cf','#ffc93c','#ff5a45','#6aa7ff',o.team||'#44c776','#2b3d5c','#2b3d5c'];
+  for(let i=0;i<900;i++){ x.fillStyle=cols[Math.floor(rnd()*cols.length)]; x.globalAlpha=.75; x.fillRect(rnd()*W,H*.165+rnd()*H*.185,W*.008,H*.008); } x.globalAlpha=1;
+  x.fillStyle='#0c3a29'; x.fillRect(0,H*.35,W,H*.035); x.fillStyle='#ffc93c'; x.fillRect(0,H*.35,W,H*.005);
+  g=x.createLinearGradient(0,H*.385,0,H); g.addColorStop(0,'#1f8048'); g.addColorStop(1,'#124f2c'); x.fillStyle=g; x.fillRect(0,H*.385,W,H);
+  x.fillStyle='rgba(255,255,255,.045)'; for(let i=0;i<6;i+=2) x.fillRect(0,H*(.385+i*.05),W,H*.05);
+  const el=(cx,cy,rx,ry,c)=>{x.fillStyle=c;x.beginPath();x.ellipse(W*cx,H*cy,W*rx,H*ry,0,0,7);x.fill()};
+  el(.5,.47,.2,.045,'#a8743f'); el(.5,.465,.07,.02,'#c08a52');
+  /* 투수 */
+  const px=W*.5, py=H*.455, u=H*.012;
+  x.fillStyle='#e9e2cf'; x.fillRect(px-u*1.1,py-u*2.2,u*.9,u*2.4); x.fillRect(px+u*.2,py-u*2.2,u*.9,u*2.4);
+  x.fillStyle=o.team||'#4b6b8a'; x.fillRect(px-u*1.4,py-u*5.2,u*2.8,u*3.2);
+  x.fillStyle='#e0b48a'; x.beginPath(); x.arc(px,py-u*6.1,u*.95,0,7); x.fill();
+  x.fillStyle=o.team||'#4b6b8a'; x.fillRect(px-u,py-u*7.2,u*2,u*.8);
+  if(o.plate){
+    el(.5,1.06,.75,.2,'#a8743f');
+    x.fillStyle='#f4f1e6'; x.beginPath(); const hx=W*.5, hy=H*.965, hw=W*.06; x.moveTo(hx-hw,hy); x.lineTo(hx+hw,hy); x.lineTo(hx+hw,hy+H*.02); x.lineTo(hx,hy+H*.045); x.lineTo(hx-hw,hy+H*.02); x.fill();
+    /* 타자 실루엣 */
+    const s=o.side==='L'?-1:1, bx=W*(o.side==='L'?.86:.14), by=H*.98, k=H*.01;
+    x.fillStyle='rgba(6,12,24,.92)'; x.strokeStyle='rgba(6,12,24,.92)';
+    x.beginPath(); x.moveTo(bx-9*k,by); x.lineTo(bx-6*k,by-22*k); x.lineTo(bx-8*k,by-44*k); x.lineTo(bx+7*k,by-46*k); x.lineTo(bx+9*k,by-22*k); x.lineTo(bx+12*k,by); x.lineTo(bx+5*k,by); x.lineTo(bx+1*k,by-20*k); x.lineTo(bx-3*k,by); x.fill();
+    x.beginPath(); x.arc(bx+s*1.5*k,by-52*k,5.5*k,0,7); x.fill();
+    x.fillRect(bx-3*k+s*2*k,by-58.5*k,9*k*s,2.4*k);
+    x.lineWidth=3.2*k; x.lineCap='round'; x.beginPath(); x.moveTo(bx+s*5*k,by-42*k); x.lineTo(bx-s*3*k,by-50*k); x.stroke();
+    x.lineWidth=2.2*k; x.strokeStyle='#caa46a'; x.beginPath(); x.moveTo(bx-s*3*k,by-50*k); x.lineTo(bx-s*13*k,by-74*k); x.stroke();
+  }
+}
+
+/* ---------- 화면 ---------- */
+const $=document.getElementById('app');
+const grade=v=>v>=90?'S':v>=78?'A':v>=64?'B':v>=50?'C':v>=36?'D':'E';
+const armSt=v=>v<35?'bad':v<60?'warn':'ok';
+const segs=(label,v,max)=>{const n=Math.ceil(clamp(v/max,0,1)*10); return `<div class="bar"><span>${label}</span><div class="segs ${armSt(v)}">${Array.from({length:10},(_,i)=>`<i class="${i<n?'f':''}"></i>`).join('')}</div><b>${Math.ceil(v)}</b></div>`};
+const fill=(label,v,cls,txt)=>`<div class="bar"><span>${label}</span><div class="fill ${cls||''}"><u style="width:${clamp(v,0,100)}%"></u></div><b>${txt??Math.round(v)}</b></div>`;
+function vHud(){ const t=team(), L=tier();
+  return `<div class="card hud" style="--team:${t.c}"><div class="emb">${t.i}</div>
+  <div><div class="nm">${esc(G.name)}</div><div class="small dim">${esc(club())}${G.league==='hs'?' 3학년':G.league==='col'?' 재학':''} · ${RN[G.role]} · ${G.year}년차 ${G.age}세 · ${G.hand} ${G.type}</div>
+  <div class="row" style="margin-top:6px;gap:8px"><div class="pips">${[0,1,2,3].map(i=>`<i class="${i<G.turn?'on':i===G.turn?'now':''}"></i>`).join('')}</div><span class="small">${L.turns[Math.min(G.turn,3)]} · ${G.season.w}승 ${G.season.l}패 ${G.season.ip?'자책 '+f1(era(G.season)):''}</span></div></div>
+  <div class="ovr"><span class="small dim">종합</span><b>${Math.round(rating())}</b></div></div>`; }
+function vBody(){ const s=G.stats, a=G.arm;
+  return `<div class="grid2"><div class="card"><h3>팔과 몸</h3>${segs('어깨',a.sh,a.max)}${segs('팔꿈치',a.el,a.max)}${fill('피로',G.fat,'fat')}
+  ${amateur()?'':`<h3>구단과 팬</h3>${fill('구단 신뢰',G.trust,'trust')}${fill('팬 인기',G.fans,'fans')}`}</div>
+  <div class="card"><h3>능력</h3>${Object.keys(SN).map(k=>`<div class="bar"><span>${SN[k]}</span><div class="fill"><u style="width:${s[k]}%"></u></div><b><span class="grade ${grade(s[k])}">${grade(s[k])}</span></b></div>`).join('')}
+  <div class="chips">${G.pitches.map(p=>`<span class="chip"><strong>${esc(p.name)}</strong> ${kmh(p)}km/h · 숙련 ${Math.round(p.mas)}</span>`).join('')}</div></div></div>`; }
+
+function vTitle(){ const has=G&&G.phase!=='retire', ty=U.type||'fire', spid=STARTP[ty].includes(U.spit)?U.spit:STARTP[ty][0];
+  return `<div class="hero"><canvas id="hero" width="900" height="450"></canvas><div><h1>투수키우기</h1><p>팔은 쓸수록 닳는다. 닳기 전에 어디까지 갈 것인가.</p></div></div>
+  <div class="card"><h2>새 투수 만들기</h2>
+  <label class="stack" for="pn" style="gap:6px"><span class="small dim">투수 이름</span><input type="text" id="pn" maxlength="8" placeholder="예: 한지운"></label>
+  <div class="stack" style="gap:6px"><span class="small dim">던지는 손</span><div class="toggle" style="align-self:flex-start">${['우완','좌완'].map(h=>`<button data-a="hand" data-v="${h}" class="${(U.hand||'우완')===h?'on':''}">${h}</button>`).join('')}</div></div>
+  <h3>유형</h3><div class="tgrid">${TYPES.map(t=>`<button class="tc ${ty===t.id?'on':''}" style="min-height:0" data-a="type" data-v="${t.id}"><strong>${t.n}</strong><small>${t.d}</small></button>`).join('')}</div>
+  <h3>보직</h3><div class="tgrid">${ROLES.map(r=>`<button class="tc ${(U.role||'sp')===r.id?'on':''}" style="min-height:0" data-a="role" data-v="${r.id}"><strong>${r.n}</strong><small>${r.d}</small><em>처음 능력치 ${r.init>0?'+':''}${r.init} · 성장 ${Math.round(r.grow*100)}%</em></button>`).join('')}</div>
+  <h3>직구 다음으로 들고 시작할 구종</h3><div class="tgrid">${STARTP[ty].map(id=>{const g=GRIPS.find(x=>x.id===id);return `<button class="tc ${spid===id?'on':''}" style="min-height:0" data-a="spit" data-v="${id}"><strong>${g.n}</strong><small>직구보다 ${-g.dv}km/h 느리다 · ${g.ax==='v'?'떨어진다':'옆으로 휜다'} · 팔꿈치 부담 ${g.se>=2?'큼':g.se>=1.2?'보통':'작음'}</small></button>`}).join('')}</div>
+  <div class="row"><button class="gbtn" data-a="new">커리어 시작</button>${has?`<button class="gbtn sub" data-a="cont">이어하기 (${esc(G.name)}, ${G.year}년차)</button>`:''}<button class="gbtn sub" data-a="rank">랭킹</button></div></div>`; }
+
+function vTrain(){
+  if(G.out>0) return vHud()+vBody()+`<div class="card"><h2>${G.outWhy||'재활 중'}</h2><p>마운드를 떠나 있다. 남은 일정 ${G.out}번.</p><div class="row"><button class="gbtn" data-a="rehab">시간을 보낸다</button></div></div>`;
+  const full=G.pitches.length>=6&&!G.pitches.some(canEvo), h=U.hard;
+  return vHud()+`<div class="card"><div class="row sp"><h2>경기 전에 무엇을 할까</h2>
+  <div class="toggle"><button data-a="hard" data-v="0" class="${!h?'on':''}">보통</button><button data-a="hard" data-v="1" class="${h?'on hard':''}">혹사</button></div></div>
+  ${h?'<p class="note bad small">혹사: 성장 1.8배, 피로 2배, 팔 소모 2.4배, 부상 위험이 커진다.</p>':''}
+  <div class="tgrid">${TR.map(t=>`<button class="tc" data-a="train" data-v="${t.id}" ${t.lab&&full?'disabled':''}><svg viewBox="0 0 24 24" aria-hidden="true">${IC[t.id]}</svg><strong>${t.n}</strong><small>${t.d}</small><em>${t.rest?'피로 -45':t.lab?(full?'구종 6개가 가득 찼다':'피로 +8'):`피로 +${t.fat*(h?2:1)}${t.sh?' · 어깨 -'+f1(t.sh*(h?2.4:1)):''}${t.el?' · 팔꿈치 -'+f1(t.el*(h?2.4:1)):''}`}</em></button>`).join('')}</div></div>`
+  +vBody()+`<div class="row"><button class="link" data-a="askquit">은퇴한다</button><button class="link" data-a="rank">랭킹</button><button class="link" data-a="home">처음 화면</button><button class="link" data-a="mute">소리 ${SET.mute?'켜기':'끄기'}</button></div>
+  ${U.askquit?`<div class="note bad"><p>지금 은퇴하면 커리어가 끝나고 되돌릴 수 없다.</p><div class="row" style="margin-top:8px"><button class="gbtn red" data-a="quit">은퇴를 확정한다</button><button class="gbtn sub" data-a="noquit">계속 던진다</button></div></div>`:''}`; }
+
+function vLab(){ const l=U.lab, g=GRIPS.find(x=>x.id===l.grip);
+  const o=(arr,key)=>`<div class="tgrid">${arr.map(x=>`<button class="tc ${l[key]===x.id?'on':''}" style="min-height:0" data-a="lab" data-k="${key}" data-v="${x.id}"><strong>${x.n}</strong><small>${x.d||`직구보다 ${-x.dv}km/h 느리다 · 무브먼트 ${x.move} · ${x.ax==='v'?'떨어진다':'옆으로 휜다'} · 팔꿈치 부담 ${x.se>=2?'큼':x.se>=1.2?'보통':'작음'}`}</small></button>`).join('')}</div>`;
+  const ev=G.pitches.map((p,i)=>({p,i})).filter(x=>canEvo(x.p)), wait=G.pitches.filter(p=>!p.t2&&EVO[p.grip]&&p.mas<80);
+  const evo=`<div class="card"><h2>구종 진화</h2>${ev.length?`<div class="tgrid">${ev.map(x=>EVO[x.p.grip].map((o,j)=>`<button class="tc" style="min-height:0" data-a="evo" data-i="${x.i}" data-j="${j}"><strong>${esc(x.p.name)} → ${o.n}</strong><small>${o.d}</small></button>`).join('')).join('')}</div>`:'<p class="dim small">숙련도 80을 넘긴 구종이 아직 없다.</p>'}
+  ${wait.length?`<p class="dim small">진화까지: ${wait.map(p=>`${esc(p.name)} ${Math.round(p.mas)}/80`).join(', ')}</p>`:''}</div>`;
+  if(G.pitches.length>=6) return vHud()+evo+`<div class="row"><button class="gbtn sub" data-a="labx">돌아간다</button></div>`;
+  return vHud()+evo+`<div class="card"><h2>새 구종 만들기</h2><p class="dim small">세 가지를 골라 나만의 공을 만든다. 구종은 6개까지 가질 수 있고, 가장 숙련된 구종이 은퇴할 때 대표 구종으로 남는다.</p>
+  <h3>그립</h3>${o(GRIPS,'grip')}<h3>팔 각도</h3>${o(SLOTS,'slot')}<h3>회전 성향</h3>${o(SPINS,'spin')}
+  <label class="stack" for="pname" style="gap:6px"><span class="small dim">구종 이름 (비우면 '${g.n}')</span><input type="text" id="pname" maxlength="12" placeholder="예: 낙엽 ${g.n}"></label>
+  <div class="row"><button class="gbtn" data-a="mk">이 구종을 익힌다</button><button class="gbtn sub" data-a="labx">돌아간다</button></div></div>`; }
+
+const gainChips=()=>`<div class="chips">${(U.gains||[]).map((x,i)=>`<span class="chip pop ${x[2]?'up':'down'}" style="animation-delay:${i*.08}s">${x[0]} <strong>${esc(x[1])}</strong></span>`).join('')}</div>`;
+function vTrainEv(){ const e=U.tev.e;
+  return vHud()+`<div class="card"><h3>훈련 중</h3><h2>${e.t}</h2><p>${e.b}</p>
+  ${U.tev.res?`<p class="note">${esc(U.tev.res)}</p><div class="row"><button class="gbtn" data-a="tevnext">계속</button></div>`:`<div class="stack">${e.ch.map((c,i)=>`<button class="gbtn sub" style="text-align:left" data-a="tev" data-v="${i}">${c[0]}</button>`).join('')}</div>`}</div>`+vBody(); }
+function vReady(){ const sp=isSP();
+  return vHud()+`<div class="card"><h2>훈련 결과</h2>${gainChips()}${(U.trainMsg||[]).map(m=>`<p class="note ${U.injured?'bad':''}">${esc(m)}</p>`).join('')}</div>`+
+  (U.injured?`<div class="card"><button class="gbtn big" data-a="skip">결장하고 다음으로</button></div>`:
+  `<div class="card"><h2>오늘 경기, 어디까지 직접 던질까</h2><div class="tgrid">
+  <button class="tc" data-a="mode" data-v="crisis"><strong>위기만 직접</strong><small>경기는 흘러가고, 주자가 쌓인 위기 ${sp?'두 번':'한 번'}을 이닝이 끝날 때까지 직접 막는다.</small><em>잘 막으면 성적과 인기가 크게 오른다</em></button>
+  <button class="tc" data-a="mode" data-v="inning"><strong>한 이닝 직접</strong><small>무사 주자 없는 상황부터 아웃 셋을 직접 잡는다.</small><em>삼진과 아웃마다 보너스</em></button>
+  <button class="tc" data-a="mode" data-v="auto"><strong>벤치에 맡긴다</strong><small>능력치대로 자동 진행한다. 빠르게 넘어간다.</small><em>보너스 없음 · 추가 팔 소모 없음</em></button></div></div>`)+vBody(); }
+
+function vGame(){ const g=U.g, d=g.ab, b=d.b, p=G.pitches[g.sel];
+  const lamps=(cls,n,m)=>`<div class="lamps ${cls}">${Array.from({length:m},(_,i)=>`<i class="${i<n?'on':''}"></i>`).join('')}</div>`;
+  let cells='';
+  for(let r=0;r<5;r++)for(let c=0;c<5;c++){ const k=r>=1&&r<=3&&c>=1&&c<=3, sel=g.cell&&g.cell[0]===r&&g.cell[1]===c;
+    const hs=d.hist.map((h,i)=>({h,i})).filter(x=>x.h.r===r&&x.h.c===c).pop(), isNew=hs&&hs.i===d.hist.length-1&&g.last, aim=g.last&&!g.cell&&g.last.tr===r&&g.last.tc===c&&!(g.last.r===r&&g.last.c===c);
+    let ball=''; if(hs){ if(isNew){ const sx=(2-c)*100, sy=(-1.36-r)*100, mx=sx*.45+(g.last.fb?0:g.last.ax==='h'?-55:0), my=sy*.45+(g.last.fb?0:g.last.ax==='v'?-60:0);
+      ball=`<span class="ballw new" style="--sx:${sx}%;--sy:${sy}%;--mx:${mx}%;--my:${my}%"><span class="ball">${hs.i+1}</span></span>`; } else ball=`<span class="ballw old"><span class="ball">${hs.i+1}</span></span>`; }
+    cells+=`<button class="cell ${k?'k':''} ${sel?'sel':''} ${aim?'aim':''}" data-a="cell" data-r="${r}" data-c="${c}" ${g.phase==='pick'?'':'disabled'} aria-label="${k?'존 안':'존 밖'} ${r+1}행 ${c+1}열">${ball}</button>`; }
+  let ctl;
+  if(g.phase==='pick') ctl=`<div class="pits">${G.pitches.map((q,i)=>`<button class="pit ${g.sel===i?'on':''}" data-a="pit" data-v="${i}"><strong>${esc(q.name)}</strong><small>${kmh(q)}km/h · ${q.dv>-9?'빠른 공':'느린 공'} · 숙련 ${Math.round(q.mas)}</small></button>`).join('')}</div>
+    <button class="gbtn big" data-a="throw" ${g.cell?'':'disabled'}>${g.cell?'와인드업':'존에서 코스를 고른다'}</button>`;
+  else if(g.phase==='meter'){ const w=sweetW(p); ctl=`<p><strong>${esc(p.name)}</strong>, 표시가 초록 구간에 있을 때 누른다. 가운데 노란 구간이면 노린 곳에 그대로 꽂힌다.</p>
+    <div class="mbar"><div class="sw" style="left:${50-w/2}%;width:${w}%"></div><div class="pf" style="left:${50-w/6}%;width:${w/3}%"></div><div class="mk" id="mk" style="left:50%"></div></div>
+    <button class="gbtn red big" data-a="rel">릴리스! <span class="small">(스페이스)</span></button>`; }
+  else if(g.phase==='abEnd') ctl=`<button class="gbtn big" data-a="nextab">다음 타자</button>`;
+  else ctl=`<p class="note ${g.segRuns?'bad':'good'}">${g.endTxt}</p><button class="gbtn big" data-a="nextseg">${g.si+1<g.segs.length?'다음 위기로':'경기를 마친다'}</button>`;
+  return `<div class="sb"><div><span>이닝</span><b>${g.inn}회</b></div><div><span>아웃</span>${lamps('o',Math.min(g.outs,2),2)}</div><div><span>볼</span>${lamps('b',Math.min(d.balls,3),3)}</div><div><span>스트라이크</span>${lamps('s',Math.min(d.strikes,2),2)}</div>
+  <div><span>주자</span><div class="dia">${g.bases.map(x=>`<i class="${x?'on':''}"></i>`).join('')}</div></div><div><span>내준 점수</span><b>${g.runs}</b></div><div><span>삼진</span><b>${g.ks}</b></div></div>
+  <div class="play"><div class="scene"><canvas id="scene" width="600" height="540" data-side="${b.side}"></canvas><div class="zone" role="group" aria-label="투구 코스">${cells}</div>${g.burst?`<div class="burst ${g.burst.tone}">${g.burst.t}</div>`:''}</div>
+  <div class="stack"><div class="card" style="gap:6px"><div class="row sp"><strong>${esc(b.name)}</strong><span class="small dim">${b.side==='R'?'우타':'좌타'} · ${b.kind}</span></div>
+  <p class="small">포수의 읽기: <strong style="color:var(--lamp)">${d.read==='fast'?'빠른 공':'느린 공'}</strong>을 노린다 (확신 ${d.conf})</p></div>
+  ${ctl}<div class="log" aria-live="polite">${g.log.map(x=>`<div>${esc(x)}</div>`).join('')}</div>
+  <div class="card" style="gap:6px;padding:10px">${segs('어깨',G.arm.sh,G.arm.max)}${segs('팔꿈치',G.arm.el,G.arm.max)}${fill('피로',G.fat,'fat')}</div>
+  <p class="small dim">구속 차이가 큰 공을 이어 던지면 헛스윙이 늘고, 같은 공을 연달아 던지면 눈에 익는다. 피로할수록 릴리스 표시가 빨라진다.</p></div></div>`; }
+
+const dchips=c=>`<div class="chips">${c.filter(x=>Math.abs(x[1])>=.05).map(x=>`<span class="chip pop ${x[1]>0?'up':'down'}">${x[0]} <strong>${sg(x[1])}</strong></span>`).join('')}</div>`;
+function vReport(){ return vHud()+`<div class="card"><h2>일정 결산</h2>${U.report.lines.map(l=>`<p>${esc(l)}</p>`).join('')}${dchips(U.report.chips)}<button class="gbtn big" data-a="next">다음으로</button></div>`+vBody(); }
+function vEvent(){ const e=U.ev.e;
+  return vHud()+`<div class="card"><h2>${e.t}</h2><p>${typeof e.b==='function'?e.b():e.b}</p>
+  ${U.ev.res?`<p class="note">${esc(U.ev.res)}</p><div class="row"><button class="gbtn" data-a="evnext">다음으로</button></div>`:`<div class="stack">${e.ch.map((c,i)=>`<button class="gbtn sub" style="text-align:left" data-a="ev" data-v="${i}">${c[0]}</button>`).join('')}</div>`}</div>`+vBody(); }
+function histTable(){ return `<div class="scroll"><table><tr><th>연차</th><th>나이</th><th>소속</th><th class="n">승</th><th class="n">패</th><th class="n">이닝</th><th class="n">자책</th><th class="n">탈삼진</th></tr>
+  ${G.hist.map(h=>`<tr><td>${h.y}</td><td>${h.age}</td><td>${esc(h.lg)}</td><td class="n">${h.w}</td><td class="n">${h.l}</td><td class="n">${h.ip}</td><td class="n">${h.ip?f1(h.era):'-'}</td><td class="n">${h.k}</td></tr>`).join('')}</table></div>`; }
+function vSeason(){ const m=U.seasonMsg;
+  return vHud()+`<div class="card"><h2>${G.year-1}년차 시즌 종료</h2><p>${esc(m.from)}에서 ${m.s.w}승 ${m.s.l}패, ${m.s.ip}이닝, 평균자책 ${m.s.ip?f1(m.e):'-'}, 탈삼진 ${m.s.k}.</p>
+  ${m.msg.map(x=>`<p class="note">${esc(x)}</p>`).join('')}${m.offer?`<p class="note good">${m.offer==='draft'?'드래프트 결과가 나왔다.':'결정할 일이 생겼다.'}</p>`:''}
+  <button class="gbtn big" data-a="season">다음 시즌으로</button></div><div class="card"><h3>통산 기록</h3>${histTable()}</div>`; }
+function vRetire(){ const c=G.career, f=G.final;
+  return `<div class="hero"><canvas id="hero" width="900" height="450"></canvas><div><h1>은퇴</h1><p>${esc(f.why)}</p></div></div>
+  <div class="card"><h2>${esc(G.name)}, ${esc(f.club)}</h2><p>${G.hist.length}시즌 통산 ${c.w}승 ${c.l}패${c.sv?` ${c.sv}세이브`:''}${c.hd?` ${c.hd}홀드`:''}, 평균자책 ${f1(era(c))}, 탈삼진 ${c.k}. 대표 구종은 ${esc(f.sig)}.${f.num?' 등번호는 영구결번이 됐다.':''}</p>
+  <h3>최종 랭킹 점수</h3><table>${f.rows.map(r=>`<tr><td>${r[0]}</td><td class="n">${r[1]}</td></tr>`).join('')}<tr class="sum"><td>합계</td><td class="n">${f.score}</td></tr></table>
+  ${f.reg?`<p class="note good">${f.reg===2?'통합 랭킹에 올렸다.':'게스트 기록으로 이 브라우저에 남겼다.'}</p>`:`<h3>통합 랭킹에 올리기</h3><p class="small dim">아이디와 비밀번호를 정하면 모든 사람이 보는 랭킹에 올라간다. 처음 쓰는 아이디는 바로 만들어지고, 다음부터는 같은 비밀번호로 올린다. 다른 곳에서 쓰는 비밀번호는 쓰지 않는다.</p>
+  <div class="row"><input type="text" id="rid" maxlength="12" autocomplete="username" aria-label="아이디" placeholder="아이디" value="${esc(U.rid??store.get('acearm.id')??'')}"><input type="password" id="rpw" maxlength="72" autocomplete="current-password" aria-label="비밀번호" placeholder="비밀번호 (4자 이상)" value="${esc(U.rpw||'')}" style="font:inherit;background:var(--night);color:var(--chalk);border:2px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;max-width:280px"></div>
+  ${U.regErr?`<p class="note bad">${U.regErr}</p>`:''}`}
+  <div class="row">${f.reg?'':`<button class="gbtn" data-a="regon" ${U.regBusy?'disabled':''}>${U.regBusy?'올리는 중':'통합 랭킹에 올린다'}</button><button class="gbtn sub" data-a="reg" ${U.regBusy?'disabled':''}>게스트로 남긴다</button>`}<button class="gbtn sub" data-a="rank">랭킹</button><button class="gbtn sub" data-a="again">새 투수로 다시 시작</button></div></div>
+  <div class="card"><h3>통산 기록</h3>${histTable()}</div>`; }
+function vRank(){ const mine=(store.get('acearm.rank2')||[]).map(x=>({...x,me:1})), all=[...mine,...LEGENDS].sort((a,b)=>b.s-a.s), me=store.get('acearm.id'), g=U.grank;
+  const top=g==null?'<p class="dim">랭킹을 불러오는 중이다.</p>':g==='err'?'<p class="note bad">랭킹 서버에 연결하지 못했다. 잠시 뒤 다시 열어 본다.</p>':!g.length?'<p class="dim">아직 등록된 기록이 없다. 첫 번째 이름을 올릴 수 있다.</p>':
+   `<div class="scroll"><table><tr><th class="n">순위</th><th>아이디</th><th>투수</th><th>커리어</th><th class="n">점수</th></tr>${g.map((x,i)=>`<tr class="${x.player===me?'me':''}"><td class="n">${i+1}</td><td>${esc(x.player)}</td><td>${esc(x.pitcher)}</td><td>${esc(x.detail)}</td><td class="n">${x.score}</td></tr>`).join('')}</table></div>`;
+  return `<div class="card"><h2>통합 랭킹</h2><p class="small dim">아이디마다 가장 높은 기록 하나가 올라간다.</p>${top}<div class="row"><button class="gbtn" data-a="rankx">돌아간다</button></div></div>
+  <div class="card"><h3>이 브라우저의 게스트 기록</h3><p class="small dim"><span class="tag">가상</span> 표시는 비교용으로 넣은 가상의 투수다.</p>
+  <div class="scroll"><table><tr><th class="n">순위</th><th>이름</th><th>커리어</th><th class="n">점수</th></tr>
+  ${all.map((x,i)=>`<tr class="${x.me?'me':''}"><td class="n">${i+1}</td><td>${esc(x.n)}${x.me?` <span class="small">(${esc(x.p)})</span>`:' <span class="tag">가상</span>'}</td><td>${esc(x.t)}</td><td class="n">${x.s}</td></tr>`).join('')}</table></div></div>`; }
+
+function tick(){ const el=document.getElementById('mk'); if(!el||!U.g||U.g.phase!=='meter') return; const p=meterPos(); U.g.mshown=p; el.style.left=p+'%'; requestAnimationFrame(tick); }
+function render(){
+  let h;
+  if(U.rank) h=vRank();
+  else if(!G||U.home) h=vTitle();
+  else h=({train:U.lab?vLab:vTrain,trainEv:vTrainEv,ready:vReady,game:vGame,report:vReport,event:vEvent,season:vSeason,retire:vRetire}[G.phase]||vTitle)();
+  $.innerHTML=h;
+  const hero=document.getElementById('hero'); if(hero) drawScene(hero,{team:G&&G.team>=0?team().c:null});
+  const sc=document.getElementById('scene'); if(sc) drawScene(sc,{team:team().c,plate:1,side:sc.dataset.side});
+  if(U.g&&U.g.phase==='meter'&&globalThis.requestAnimationFrame) requestAnimationFrame(tick);
+}
+function recover(){
+  if(!G) return;
+  if(G.phase==='trainEv'&&!U.tev) G.phase='ready';
+  if(G.phase==='game'&&!U.g) G.phase='ready';
+  if(G.phase==='ready'&&!U.trainMsg){ U.trainMsg=['훈련을 마쳤다.']; U.gains=[]; U.injured=false; }
+  if((G.phase==='report'&&!U.report)||(G.phase==='event'&&!U.ev)){ G.phase='train'; nextTurn(); }
+  if(G&&G.phase==='season'&&!U.seasonMsg) G.phase='train';
+  if(G.flags.try){ joinTeam(G.flags.try.back,38,'fut'); G.flags.try=null; G.phase='train'; }
+  if(G.flags.draft&&G.phase!=='retire'){ U.ev={e:draftEvent(),next:'train'}; G.phase='event'; }
+}
+function act(a,b){
+  const v=b.v, keep=id=>{const el=document.getElementById(id); return el?el.value:''};
+  switch(a){
+    case 'hand': U.pn=keep('pn'); U.hand=v; break;
+    case 'type': U.pn=keep('pn'); U.type=v; break;
+    case 'role': U.pn=keep('pn'); U.role=v; break;
+    case 'spit': U.pn=keep('pn'); U.spit=v; break;
+    case 'new': { const ty=U.type||'fire'; newGame(keep('pn').trim().slice(0,8),U.hand||'우완',ty,U.role||'sp',STARTP[ty].includes(U.spit)?U.spit:STARTP[ty][0]); break; }
+    case 'cont': U.home=false; recover(); break;
+    case 'home': U.home=true; break;
+    case 'mute': SET.mute=!SET.mute; store.set('acearm.set',SET); break;
+    case 'again': G=null; store.del('acearm.save4'); U={}; break;
+    case 'rank': U.rank=true; loadRank(); break;
+    case 'rankx': U.rank=false; break;
+    case 'hard': U.hard=v==='1'; break;
+    case 'train': U.askquit=false; if(v==='lab'){ U.lab={grip:'sld',slot:'tq',spin:'safe'}; } else { doTrain(v,U.hard&&v!=='rest'); snd(U.injured?'bad':'gain'); } break;
+    case 'lab': U.pnm=keep('pname'); U.lab[b.k]=v; break;
+    case 'labx': U.lab=null; U.pnm=''; break;
+    case 'evo': evolve(+b.i,+b.j); U.lab=null; snd('gain'); break;
+    case 'mk': makePitch(); U.lab=null; U.pnm=''; snd('gain'); break;
+    case 'tev': U.tev.res=U.tev.e.ch[+v][1](); save(); break;
+    case 'tevnext': U.trainMsg.push(U.tev.res); U.tev=null; G.phase='ready'; if(checkRetire()) break; save(); break;
+    case 'rehab': G.out--; G.fat=0; G.turn++; if(G.turn>=4) endSeason(); else save(); break;
+    case 'askquit': U.askquit=true; break;
+    case 'noquit': U.askquit=false; break;
+    case 'quit': U.askquit=false; retire('스스로 마운드를 내려왔다.'); break;
+    case 'mode': startGame(v); break;
+    case 'skip': skipPeriod(); break;
+    case 'pit': U.g.sel=+v; break;
+    case 'cell': U.g.cell=[+b.r,+b.c]; U.g.last=null; U.g.burst=null; break;
+    case 'throw': if(U.g.cell){ U.g.phase='meter'; U.g.mt0=now(); U.g.mshown=null; } break;
+    case 'rel': if(U.g.phase==='meter') release(); break;
+    case 'nextab': U.g.ab=newAB(); U.g.phase='pick'; U.g.last=null; U.g.burst=null; break;
+    case 'nextseg': nextSeg(); break;
+    case 'next': afterReport(); break;
+    case 'ev': U.ev.res=U.ev.e.ch[+v][1](); save(); break;
+    case 'evnext': { const n=U.ev.next; U.ev=null; if(checkRetire()) break; if(n==='tryout'){ G.league='fut'; G.team=G.flags.try.to; startGame('inning'); U.g.tryout=1; U.g.log.unshift('입단 테스트. 1점 이하로 막으면 합격이다.'); } else if(n==='turn') nextTurn(); else { G.phase='train'; save(); } break; }
+    case 'season': afterSeason(); break;
+    case 'reg': registerRank(); break;
+    case 'regon': registerOnline(); break;
+  }
+  if(!['rel','train','mk','evo'].includes(a)) snd('ui');
+  render();
+  if(U.pn){ const el=document.getElementById('pn'); if(el) el.value=U.pn; }
+  if(U.pnm){ const el=document.getElementById('pname'); if(el) el.value=U.pnm; }
+}
+$.addEventListener('pointerdown',ev=>{ const b=ev.target.closest('[data-a=rel]'); if(b&&U.g&&U.g.phase==='meter'){ ev.preventDefault(); act('rel',{}); } });
+$.addEventListener('click',ev=>{ const b=ev.target.closest('[data-a]'); if(!b||b.disabled) return; act(b.dataset.a,b.dataset); });
+document.addEventListener('keydown',ev=>{ if(ev.code==='Space'&&G&&G.phase==='game'&&U.g&&!U.rank&&!U.home){ if(U.g.phase==='meter'){ ev.preventDefault(); act('rel',{}); } } });
+U.home=true; render();
+</script>
+</body>
+</html>
